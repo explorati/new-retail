@@ -1,0 +1,63 @@
+1.选择InnoDB引擎
+	1.MYISAM：Mysql5.0之前，MYISAM引擎是使用最多的，特点是数据读取的速度很快，适合读多写少的业务场景，但是不支持事务。为了确保数据一致性，MYISAM引擎在写入数据时锁表，不允许其他的并发写入，但是如果要连续写入多条数据，想要回滚是不可能的，所以不支持事务的MYISAM在很多业务场景中是不胜任的。而且MYISAM引擎在服务器崩溃之后，数据维护的难度比Innodb引擎要大。所以MYISAM引擎基本上没人用了现在。
+
+	2.Innodb引擎：现在是Mysql默认的存储引擎，Innodb是mysql5.0之后引入的，最大的特点是支持事务机制，从锁表变成了行锁，这样并发写入就好了许多。适合在读多写多的场景使用，而且综合维护成本低，所以说所有上线的程序都应该选择Innodb引擎。
+
+	3.TokuDB引擎：需要额外的安装，并且只支持Linux系统。由于Innodb引擎单表数据量超过2000万，那么这张表的读写速度就会明显下降。因此，我们要把数据表中不常用的过期数据转移到归档表里面，这样业务表的空间就腾出来了，读写速度也就恢复了。归档数据表由于存储的数据量非常大，当归档的时候，需要向其中瞬时写入很多数据。TokuDB引擎整好可以胜任，同样在事务机制下，TokuDB引擎的写入速度是Innodb的9~20倍，数据的压缩比是InnoDB的14倍，因为过期数据存放在归档表里面很少被查找，所以用TokuDB这种写多读少的引擎来存放整好合适。
+
+
+2.导入SQL文件(直接使用Navicat)
+
+3.数据插入
+	1.批量插入数据，因为一条记录的问题，全部数据都写入失败
+		INSERT IGNORE INTO t_dept() values(); 忽略错误，不全部回滚
+	2.如何实现不存在就插入，存在就更新？
+		on duplicate key
+
+	1.INSERT IGNORE INTO t_dept(deptno, dname, loc) 
+	  VALUES (40, "企划部", "北京"),
+			 (50, "培训部", "上海"),
+			 (60, "后勤部", "北京"),
+			 (70, "技术部", "北京"),
+			 (80, "市场部", "北京");
+	2.INSERT INTO t_emp_ip(id, empno, ip) VALUES
+		(5, 8004, "192.168.99.44"),
+		(6, 8005, "192.168.99.45"),
+		(7, 8006, "192.168.99.46"),
+		(8, 8001, "192.168.99.47")
+	ON DUPLICATE KEY UPDATE ip=VALUES(ip);
+
+4.要不要使用子查询？
+	1.Mysql数据库默认关闭了缓存，所以每个子查询都是相关子查询
+	2.相关子查询就是要循环执行多次的子查询
+
+	相关子查询如：select empno, ename FROM t_emp WHERE sal > (SELECT sal FROM t_emp WHERE empno=7499) AND empno!=7499;
+	这个sql语句里面where子句里面的查询就是相关子查询，会执行很多次，WHERE语句没过滤一条数据，子查询就会执行一次。如果说员工表里有1万条数据，这个子查询就会执行1万次。子查询效率太低，不能这么去写sql语句
+
+	3.因为Mybatis等持久层框架开启了缓存功能，其中一级缓存就会保存子查询的结果，所以可以放心使用子查询。
+	4.结论：SQL控制台不要使用子查询，在持久层框架中则可以使用
+
+5.如何替代子查询？
+	1.使用FROM子查询，替代WHERE子查询
+	SELECT e.empno, e.ename FROM t_emp e JOIN (SELECT sal FROM t_emp WHERE empno = 7499) t
+	ON e.sal > t.sal AND e.empno != 7499;
+	2.FROM子查询只会执行一次，所以不是相关子查询
+
+6.外连接的JOIN条件
+	1.内连接里，查询条件写在ON子句或者WHERE子句，效果相同
+	SELECT e.ename, d.dname FROM t_emp e JOIN t_dept d ON e.deptno=d.deptno AND d.deptno=10;
+	SELECT e.ename, d.dname FROM t_emp e JOIN t_dept d ON e.deptno=d.deptno WHERE d.deptno=10;
+	2、外连接里，查询条件写在ON子句或者WHERE子句，效果不同
+	SELECT e.ename, d.dname FROM t_emp e LEFT JOIN t_dept d ON e.deptno=d.deptno AND d.deptno=10;
+	SELECT e.ename, d.dname FROM t_emp e LEFT JOIN t_dept d ON e.deptno=d.deptno WHERE d.deptno=10;
+
+7.表连接修改
+	UPDATE语句中的WHERE子查询如何改成表连接？
+		UPDATE t_emp SET sal=10000 WHERE deptno=(SELECT deptno FROM t_dept WHERE dname="SALES");
+		相关子查询改进：
+		UPDATE t_emp e JOIN t_dept d ON e.deptno=d.deptno AND d.dname="SALES" SET e.sal=10000, d.dname="销售部";
+
+8.表连接删除
+	DELETE语句也可以使用表连接
+		DELETE e, d FROM t_emp e JOIN t_dept d ON e.deptno=d.deptno AND d.dname="销售部";
+
