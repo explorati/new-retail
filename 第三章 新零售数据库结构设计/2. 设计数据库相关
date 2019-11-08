@@ -1,0 +1,84 @@
+新零售 new retail
+
+数据库设计三范式：
+	一、确保每列保持原子性
+	二、确保表中的每列都和主键相关
+	三、确保每列都和主键列直接相关
+
+单节点中可以用主键自动增长，集群中千万不能用
+
+布尔类型在MySQL里面对应的是1字节的tinyint 
+默认的tinyint是4个字节的
+
+日期类型：DATE TIMESTAMP
+数值：DECIMAL
+
+Mysql中AES加密(对称加密：加密和解密用同一种算法)
+	select AES_ENCRYPT("HelloWorld", "new retail");
+	此时会出现乱码，原因：Mysql默认字符集是UTF8的，每个字符是三个字节的，AES加密之后的字符集每个字符是两个字节的，所以出现乱码。
+	解决办法：
+		select HEX(AES_ENCRYPT("HelloWorld", "new retail"));
+
+	解密方法：
+		select AES_DECRYPT(UNHEX("799531CA0BEB4078163F10BD4D081DDC"),"new retail");
+
+	其中HelloWorld是用户的密码，而new retail是密钥，加密和解密时需要相同的密钥(此处为new retail)。 UNHEX作用：将UTF8字符集转换为二进制字符集
+
+一张订单中可以包含多个商品记录，可不可以用JSON存储这些商品信息？
+	JSON字段适合存储数据，不适合检索数据
+	最合适的方法，创建两张表：一张订单表，一张订单明细表(因为用户可能根据原先的购买物品进行检索)
+
+示例建表语句：
+	create table t_supplier(
+		id int unsigned primary key auto_increment comment '主键',
+		`code` varchar(200) not null comment '供货商编号',
+		`name` varchar(200) not null comment '供货商名称',
+		type tinyint unsigned not null comment '类型：1.厂家，2.代理商，3.个人',
+		link_man varchar(20) not null comment '联系人',
+		tel varchar(20) not null comment '联系电话',
+		address varchar(200) not null comment '联系地址',
+		bank_name varchar(200) comment '开户银行名称',
+		bank_account varchar(200) comment '银行账号',
+		`status` tinyint unsigned not null comment '状态：1.可用，2.不可用',
+		index idx_code(`code`),
+		index idx_type(type),
+		index idx_status(`status`),
+		unique unq_code(`code`)
+	)comment='供货商表';
+主键是必须的，索引，唯一键约束，非空，注释
+
+全部的表(按照创建顺序排序)：
+	品类表(t_spec_group)
+	参数表(t_spec_param)
+	品牌表(t_brand)
+	商品分类表(t_category)
+	分类与品牌关联表(t_category_brand)
+	产品表(t_spu)
+	商品表(t_sku)
+	省份表(t_province)
+	城市表(t_city)
+	仓库表(t_warehouse)
+	库存表(t_warehouse_sku)
+	零售店表(t_shop)
+	零售店与库存关联表(t_shop_sku)
+	会员等级表(t_level)
+	客户表(t_customer)
+	客户收货地址表(t_customer_address)
+	购物券表(t_voucher)
+	客户关联购物券表(t_voucher_customer)
+	订单表(t_order)
+	订单详情表(t_order_detail)
+	部门表(t_dept)
+	职位表(t_job)
+	员工表(t_emp)
+	角色表(t_role)
+	用户表(t_user)
+	快递表(t_delivery)
+	退货表(t_backstock)
+	评价表(t_rating)
+	供应商数据表(t_supplier)
+	供货商关联商品表(t_supplier_sku)
+	采购表(t_purchase)
+	入库表(t_productin)
+	入库商品表(t_purchase_productin)
+	
