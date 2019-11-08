@@ -19,6 +19,14 @@ buildNumber.properties
 *.iml
 /.idea/
 /out/
+
+#eclipse files
+.project
+.classpath
+.settings
+.metadata
+catalina.*
+/target/
  
 # BlueJ files
 *.ctxt
