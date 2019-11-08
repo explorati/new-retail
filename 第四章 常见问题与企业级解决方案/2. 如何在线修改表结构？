@@ -1,0 +1,58 @@
+在线修改表结构
+*	在线修改表结构必须慎重
+		1.在业务系统运行的过程中随意删改字段，会造成重大事故
+		2.常规的做法是业务停机，维护表结构
+		3.但是不影响正常业务的表结构是允许在线修改的
+
+**	ALTER TABLE修改数据表结构的弊病
+		1.由于修改表是表级锁，因此在修改表结构时，影响表写入操作
+		2.如果修改表结构失败，必须还原表结构，所以耗时更长
+		3.大数据表记录多，修改表结构锁表时间很久
+	所以千万不能用ALTER TABLE语句对数据库进行线上的修改
+
+*	使用PerconaTookit工具
+		Percona公司提供了维护MySQL的PerconaTookit工具包
+		pt-online-schema-change可以完成在线修改表结构
+
+**	在线修改表结构的原理
+		例如，想修改t_order表，首先，py-online-schema-change这个工具会先创建一个新的数据表t_order_new，然后在这个新的数据表里面做结构上的修改。在这之后，Percona程序会在原来的t_order表上创建触发器，只要原来的数据表有添加，修改或者删除操作，就会同步到t_order_new中，Percona程序还会把原来订单表里面的数据拷贝到新的订单表里面，这样双管齐下，数据都同步过来之后，而且原订单表也没有数据写入的时候，Percona程序就会删除原来的订单表，然后把新的订单表的名字改回成t_order，这样就完成了在线修改表结构的任务。回顾一下，全程都没有锁表，不会耽误数据的读写。
+
+	安装PerconaTookit依赖包(不要和mysql8.0安装到一个虚拟机，会有冲突)(可以使用克隆机)
+		安装第三方依赖包
+			yum install -y perl-DBI
+			yum install -y perl-DBD-mysql
+			yum install -y perl-IO-Socket-SSL
+			yum install -y perl-Digest-MD5
+			yum install -y perl-TermReadKey
+
+	安装PerconaTookit工具
+		percona-toolkit-3.0.13-1.el7.x86_64.rpm
+		percona-toolkit-debuginfo-3.0.13-1.el7.x86_64.rpm
+		将两个文件上传
+		安装所有rpm文件   rpm -ivh *.rpm
+
+	pt-online-schema-change参数
+		pt-online-schame-change OPTIONS DSN
+			参数 		实际含义
+		   --host  	    数据库IP地址
+		   --user       用户名
+		  --password    密码
+		  --port 		端口号
+		   	 D 			逻辑库
+		   	 t 			数据表
+		  --alter  		修改语句
+		  --execute 	执行修改
+		  --dry-run 	测试程序(模拟修改)
+		  --print 		打印过程
+
+	示例：把客户收货地址表中的name字段改成VARCHAR(20)
+**		这个操作不会对业务系统造成影响，所以是允许在线修改的。但是这个在线修改，又不想锁表，就应该使用Pro			cane提供的工具。
+*		由于mysql8.0引入了新的密码认证方式，PerconaTookit是不支持的，所以只能在数据库端做点手脚
+		将mysql密码认证方式改成老版本的方式
+			ALTER USER 'root'@'%' IDENTIFIED BY 'password' PASSWORD EXPIRE NEVER;
+			ALTER USER 'root'@'%' IDENTIFIED with mysql_native_password BY 'xxx';
+*		pt-online-schema-change --host=xxxx --port=3306 --user=xx --password=xx 
+		--alter "modify name varchar(20) not null comment '收货人'" D=neti,t=t_customer_address --print --execute 
+
+*		PerconaTookit工具主要优点：不锁表完成表结构修改
+
