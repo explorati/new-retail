@@ -9,3 +9,16 @@
 ***	新的创建随机数的方法(Java中)：
 		ThreadLocalRandom.current().ints(0,9).limit(10).forEach((one) -> {sb.append(one);});
 		生成长度为10的随机数
+
+		java代码：
+			public static String createOrderCode(String type, String organizationId, String spgId, String date) {
+				StringBuffer sb = new StringBuffer();
+				sb.append(type);
+				sb.append(organizationId);
+				sb.append(spgId);
+				sb.append(date);
+				ThreadLocalRandom.current().ints(0,9).limit(10).forEach((one) -> {
+					sb.append(one);	
+				});
+				return sb.toString();
+			}
