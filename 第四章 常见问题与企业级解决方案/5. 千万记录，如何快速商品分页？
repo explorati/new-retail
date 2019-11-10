@@ -1,0 +1,60 @@
+千万记录，如何快速分页
+	常用的分页查询SQL
+		select id, name from t_test limit 100, 100;
+		select id, name from t_test limit 10000, 100;
+		select id, name from t_test limit 1000000, 100;
+		select id, name from t_test limit 5000000, 100;
+
+**	测试上面SQL语句的查询速度
+		1.新建数据库test1，利用java程序生成要插入的数据
+		java代码：
+			public static void main(String[] args) {
+				try {
+					// 字符输出流
+					FileWriter w = new FileWriter("D:/新零售数据库/1.txt");
+					// 缓冲流(提高效率)
+					BufferedWriter bw = new BufferedWriter(w);
+					for (int i = 1; i < 10000000; i++) {
+						String uuid = UUID.randomUUID().toString();
+						// i为主键，uuid为val
+						bw.write(i + ", " + uuid + "\n");
+					}
+					bw.close();
+					w.close();
+					System.out.println("执行完毕");
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		2.回到Navicat，右键表->导入向导->选择.txt文件->记录分隔符选择"LF(换行)" 字符分隔符选择","->第一个数据行 1 -> 目标字段处匹配 id val两个字段 ->追加->开始
+		注意：其中记录分隔符有三种选择：1.CR 回车("\r") 2.LF 换行("\n") 3.CRLF 回车换行("\r" "\n")
+
+*		为什么不用insert语句插入，而用文档的方式呢？
+			用insert方式是带着事务执行的，速度很慢。
+			而用文档方式导入，是不带事务去写入数据的，这个写入的速度是非常快的。
+
+		测试
+			select id, val from t_test limit 100, 10;    	0.002s
+			select id, val from t_test limit 10000, 10;		0.006s
+			select id, val from t_test limit 100000, 10;	0.023s
+			select id, val from t_test limit 500000, 10;	0.148s
+			select id, val from t_test limit 1000000, 10;   9.00s 有缓存之后0.249s
+
+**		可见查询越靠后，查询速度越慢，返回结果集时间就越长
+		所以需要一个好的分页算法来实现海量数据的分页
+
+***		优化方法				
+			1.利用主键索引来加速分页查询
+				select * from t_test where id>=5000000 limit 100;			0.008s
+				select * from t_test where id>5000000 and id<5000000+100;
+***			2.对主键不连续的数据进行分页(加速查询速度的提升是有限的)
+				使用逻辑删除，也会造成主键不连续
+				利用主键索引加速，再做表连接查询
+			我们给某一个字段去创建一个索引，数据库就会给这个字段创建一个隐藏的索引表，结构是二叉树的，记录的信息是字段的值和主键值，当用索引字段作为查询条件，MySQL就会在二叉树里面快速地定位到数据，然后提取出主键的信息，再去关系表中根据主键值来查找数据，索引就是这么来完成加速的。
+				select t.id, t.val from t_test t join (select id from t_test limit 5000000,100) tmp on t.id = tmp.id;
+
+				select id from t_test limit 5000000,100 查询第5000000条和向后100条的数据
+**			3.其他解决办法
+				业务上限定不可以查询早期数据(禁止查询太靠后的数据)
+					如：支付宝上面查不到几年前的一笔大额转账，数据是不可能丢失的，只不过支付宝不让查询很早之前的数据罢了
+					如在百度上搜索信息，最多只能搜索到76页数据，更早的内容百度是不让看的
