@@ -1,0 +1,47 @@
+如何实现商品秒杀(二)
+	下载安装Redis程序
+		网址：https://redis.io/download
+	1.把Redis的压缩包上传到CentOS系统，然后执行解压缩
+		使用MobaXterm上传到~目录下
+		tar -zxvf redis-5.0.6.tar.gz
+	2.安装GCC编译器
+		yum install gcc-c++ -y
+	3.进入Redis目录，执行编译	
+		cd redis-5.0.6
+		make
+		(
+			若过程中报错缺失jemalloc.h
+			解决办法：
+				make MALLOC=libc
+			或者去github中找
+			https://github.com/jemalloc/jemalloc/releases/download/5.1.0/
+		)
+	4.进入src目录，执行安装命令
+		cd src && make all
+	5.启动Redis
+		./redis-server ../redis.conf
+	6.修改redis.conf文件
+		bind 0.0.0.0	 		#允许任何ip访问Redis
+		daemonize yes 			#以后台进程运行Redis
+		protected-mode no 		#关闭保护功能
+		requirepass abc123456 	#设置访问密码
+	7.再次连接redis客户端
+		./redis-server ../redis.conf
+		cd src
+		.redis-cli -a -密码
+	8.关闭SELINUX
+		vi /etc/selinux/config
+		将其中的配置改为disabled，然后保存退出:wq，然后重启系统reboot
+	9.开启防火墙的80端口和6379端口(permanent(永恒)：退出以后在登录也开启)
+		firewall-cmd --zone=public --add-port=80/tcp permanent
+		firewall-cmd --zone=public --add-port=6379/tcp permanent
+		firewall-cmd --reload
+
+注意：每次使用./redis-cli前需要先执行 ./redis-server ../redis.conf
+	 如果在redis.conf中设置了密码的话 需要 ./redis-cli -a 密码 ,否则权限不够
+
+	使用RDM客户端连接Redis
+		在共享文件夹找到RDM客户端，安装之后，连接Redis
+
+
+	
