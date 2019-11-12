@@ -1,0 +1,79 @@
+如何实现商品秒杀(三)？
+***	Redis事务机制
+		客户端A首先观察数据，此时记录了版本号信息，然后开启事务，编写命令(批处理命令)缓存到客户端本地，然后全部编写完成之后，批量提交，Redis分析版本号信息，没有逻辑问题就会执行这些批处理命令了。由于Redis是单线程执行的，所以不能被打断，因此会一口气将客户端A的命令全部执行完。
+		只有一种情况A会失败，就是A在本地缓存命令的时候客户端B修改了数据，数据的版本号也更新了。这时，客户端A提交事务，Redis发现数据的版本号有冲突的，Redis就不会执行客户端的批处理命令，提交失败。
+
+	如何保持事务一致性？
+		为了保证事务的一致性，在开启事务之前要用WATCH命令监视要操作的记录
+
+**		WATCH kill_num kill_user
+				库存     用户id
+
+*	开启事务：MULTI
+**	开启事务之后，客户端的命令都不会传递给Redis，而是先缓存在Redis本地，只有等到执行EXEC命令，提交事务		时候，这个时候客户端会把缓存的命令一次性全部发送给Redis去执行。
+	例：
+		MULTI
+		DECR kill_num
+		RPUSH kill_user 9502
+		EXEC
+
+	Maven引用Redis
+		在pom.xml文件中添加下面内容，引入Jedis依赖包
+			<dependency>
+			    <groupId>redis.clients</groupId>
+			    <artifactId>jedis</artifactId>
+			    <version>3.1.0</version>
+			    <type>jar</type>
+			    <scope>compile</scope>
+			</dependency>
+
+测试用例(秒杀)：
+	Application类：
+		public class Application {
+			public static ThreadPoolExecutor pool = new ThreadPoolExecutor(10, 100, 10, 			TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+			public static void main(String[] args) {
+				//登录Redis
+				Jedis jedis = new Jedis("ip",端口号);
+				jedis.auth("登录密码");
+				//选择0号缓存库
+				jedis.select(0);
+				//删除0号库中的kill_user字段
+				jedis.del("kill_user");
+				//关闭连接
+				jedis.close();
+				for(int i = 0; i < 1000; i++) {
+					pool.executor(new KillTask());
+				}
+			}
+		}
+
+	KillTask类
+		public class KillTask implements Runnable {
+			@Override
+			public void run() {
+				Jedis jedis = new Jedis("ip", 端口号);
+				jedis.auth("登录密码");
+				jedis.select(0);
+				//设置库存
+				jedis.set("kill_num", 50);
+				//开启观察
+				jedis.watch("kill_num", "kill_user");
+				//获取库存数量
+				int num = Integer.parseInt(jedis.get("kill_num"));
+				//如果库存大于0
+				if( num > 0) {
+					//开启事务
+					Transaction transaction = jedis.multi();
+					//库存减一
+					transaction.decr("kill_num");
+					//将秒杀用户id放入list列表中
+					transaction.rpush("kill_user", 秒杀用户id);
+					//提交事务
+					transaction.exec();
+				} else {
+					//关闭线程池，结束秒杀
+					Application.pool.shutdown();
+				}
+				jedis.close();
+			}
+		}
