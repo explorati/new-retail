@@ -5,15 +5,15 @@
 	触发器：特殊的存储过程，存储过程和函数需主动调用才能执行，而触发器不用主动调用，只要写好触发条件Mysql就会自动执行
 
 什么是存储过程？
-	存储过程是一个编译后的SQL脚本集合，可以单独调用，但是不能用在SQL语句中
+	存储过程是一个编译后的SQL脚本集合，可以单独调用，但是不能用在SQL语句中(可以用call 调用)
 
 	把SQL语句封装成存储过程是为什么呢？
 		如，银行的核心业务还是SQL语句处理的，但是银行有很多衍生的服务，这些衍生服务会交给一些外包公司来做。对银行来说，并不希望公布数据库的结构设计，让外包公司知道有哪些数据表，数据表里面有什么字段。于是，银行就会组织内部开发人员，编写大量的存储过程，有的是用来开户的，有的是用来转账的等。封装完了存储过程，银行只需要告诉外包公司，这些存储过程的用途，以及传入的参数和返回的结果。对于外包公司来说，无法得知数据表的设计，仅凭有效的存储过程，外包公司想对银行数据库搞破坏是很困难的。
-	总结起来：存储过程主要用途是保护内部数据表的安全，防止其他人员改动或指导数据表的字段内容。封装好存储过程，对外只需要提供用途，需传入的参数和返回结果就ok了。
+	总结起来：存储过程主要用途是保护内部数据表的安全，防止其他人员改动或知道数据表的字段内容。封装好存储过程，对外只需要提供此存储过程的用途，需传入的参数和返回的结果就ok了。
 
 存储过程的优点
 	1.存储过程是编译过的SQL脚本，所以执行速度非常快
-		调用时省去了校验SQL文件中的语法和对SQL语句的优化
+		调用时省去了校验SQL文件中的语法和对SQL语句进行优化的过程
 	2.实现了SQL编程，可以降低锁表的时间和锁表的范围
 	  可以把大的复杂的SQL语句改写成多个简单的SQL语句，降低了锁表时间
 		最初的时候由于不知道在数据库中可以定义变量，所以查询出来的结果没有办法保存，只能写在SQL语句里面，于是SQL语句越写越复杂，如：子查询中：查询出来的结果没有地方保存，只能写在where子句里面，子查询就变成了相关子查询，效率更低；若是update操作使用子查询，会将表锁住很长时间。有了存储过程，可以先把查询的结果保存到变量，然后把变量写到where子句里面。效率就更高了，锁表时间更短了。
@@ -24,7 +24,7 @@
 	编写存储过程，根据部门名称，查询部门用户信息
 	Navicate中 函数 -> 新建函数 -> 过程 ->模式： IN  名称：`p_dname` 类型：varchar(20)
 	语句：
-	CREATE DEFINER=`root`@`%` PROCEDURE `NewProc`(IN `p_dname` varchar(20))
+	CREATE DEFINER=`root`@`%` PROCEDURE `p1`(IN `p_dname` varchar(20))
 	BEGIN
 	#Routine body goes here...
 	SELECT 
@@ -45,10 +45,10 @@
 	#Routine body goes here...
 	DECLARE dept_id INT;
 	CASE
-	WHEN p_sex = "女" THEN
-		set dept_id = 3;
-	ELSE 
-		set dept_id = 4;
+		WHEN p_sex = "女" THEN
+			set dept_id = 3;
+		ELSE 
+			set dept_id = 4;
 	END CASE;
 	insert into `t_emp`(wid, ename, sex, married,education,tel,dept_id,hiredate, job_id, `status`,is_deleted) values(p_wid, p_ename, p_sex, p_married, p_education, p_tel, dept_id, curdate(), 9, 1, 0);
 	END
