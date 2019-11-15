@@ -15,6 +15,10 @@
 		部门表中 -> 设计表 -> 触发器 t2 after 删除
 		DELETE FROM t_emp where dept_id = OLD.id;
 
+**	MySQL中所有的触发器都记录在information_schema中的TRIGGERS表中
+	查看：show triggers;
+	删除: drop trigger 触发器名;
+
 -------------------------------------------------------------------------
 	类型：
 		语句级触发器：在指定的操作语句操作之前或之后执行一次，不管这条语句影响了多少行   针对是表
