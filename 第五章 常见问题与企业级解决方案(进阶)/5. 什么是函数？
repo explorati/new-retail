@@ -1,0 +1,35 @@
+什么是函数？
+	函数是一种特殊的存储过程，存储过程可以没有返回值，函数必须要有返回值，而且只能是一个数据，不能返回多条记录，也不能是一条记录带有多条字段。如，max()、avg()返回的只能是一个数据
+
+除了系统中提供的函数，如avg max abs 等，还可以自定义函数
+
+(注意：编写完函数运行时报错 1418，解决办法：在查询面板:SET GLOBAL log_bin_trust_function_creators=1)
+编写计算个税函数
+	2017年：个税计算公式=(收入 - 3500) x 税率 - 扣除数
+	函数 -> 新建函数 -> 函数 -> 参数 salary decimal -> 返回类型 decimal(10, 2)
+	BEGIN
+	DECLARE temp DECIMAL;
+	DECLARE tax DECIMAL;
+	SET temp = salary - 3500;
+	CASE
+		WHEN temp <= 0 THEN
+			SET tax = 0;
+		WHEN temp > 0 AND temp <= 1500 THEN
+			SET tax = temp * 0.03 - 0;
+		WHEN temp > 1500 AND temp <= 4500 THEN
+			SET tax = temp * 0.1 - 105;
+		WHEN temp > 4500 AND temp <= 9000 THEN
+			SET tax = temp * 0.2 - 555;
+		WHEN temp > 9000 AND temp <= 35000 THEN
+			SET tax = temp * 0.25 - 1005;
+		WHEN temp > 35000 AND temp <= 55000 THEN
+			SET tax = temp * 0.3 - 2755;
+		WHEN temp > 55000 AND temp <= 80000 THEN
+			SET tax = temp * 0.35 - 5505;
+		ELSE 
+			SET tax = temp * 0.45 - 13505;
+	END CASE;
+	RETURN tax;
+	END
+	函数命名：f1
+	调用：select f1(4000)
