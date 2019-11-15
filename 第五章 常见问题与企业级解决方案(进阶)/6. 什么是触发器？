@@ -1,0 +1,92 @@
+什么是触发器？
+	触发器也是一种特殊的存储过程，只不过不需要我们手动去调用，当满足规定的条件，数据库就会自动去执行触发器了。触发器能捕获事件，如更新、删除等各种操作，类似前端中的js。
+
+触发器类似于外键，那么为什么不用外键？
+	在设计数据表的时候，不要使用外键机制，因为外键用多了，很容易产生闭环结构，那样的话，什么数据表的记录都不能修改，也不能删除，维护起来非常困难。
+
+不想使用外键，还想做数据同步更新这个功能，就可以用触发器来替代
+
+编写触发器
+	编写触发器，修改部门编号，同步更新该部门员工的dept_id字段
+		到部门表中 -> 设计表 -> 触发器 名称t1 触发 after 更新
+		UPDATE t_emp SET dept_id = NEW.id WHERE dept_id = OLD.id;
+
+	编写触发器，当删除部门之后，删除这个部门的员工记录、
+		部门表中 -> 设计表 -> 触发器 t2 after 删除
+		DELETE FROM t_emp where dept_id = OLD.id;
+
+-------------------------------------------------------------------------
+	类型：
+		语句级触发器：在指定的操作语句操作之前或之后执行一次，不管这条语句影响了多少行   针对是表
+		行级触发器：触发语句作用的每一条记录都被触发。在行级触发器中使用:old和:new伪记录变量，识别值的状态
+
+	触发器应用场景1：实施复杂的安全性检查
+		禁止在非工作时间插入新员工
+		/*
+		1.周末：to_char(sysdate,"day") in ("星期六", "星期日")
+		2.上班前，下班后: to_number(to_char(sysdate, "hh24")) not between 9 and 18
+		*/
+		create or replace trigger securityemp
+		before insert
+		on emp
+		begin
+			if to_char(sysdate, "day") in ("星期六", "星期日") or
+				to_number(to_char(sysdate, "hh24")) not between 9 and 18 then
+				raise_application_error(-20001, "禁止在非工作时间插入新员工")
+			end if;
+		end;
+
+	触发器应用场景二：数据的确认
+		涨后的薪水不能少于涨前的薪水
+		1.:old和:new代表同一条记录
+		2.:old 表示操作该行之前，这一行的值
+		  :new 表示操作该行之后，这一行的值
+		create or replace trigger checksalary
+		before update
+		on emp
+		for each row
+		begin
+			if :new.sal < :old.sal then
+			 raise_application_error(-20002,"涨后的薪水不能少于涨前的薪水，涨后的薪水：" ||:new.sal || " 涨前的薪水："||:new_sal)
+			end if;
+		end;
+
+	触发器应用场景三：数据库审计-->基于值的审计功能
+		给员工涨工资，当涨后的薪水超过6000块钱的时候，审计该员工的信息
+		创建表：用于保存审计信息
+		create table auto_info
+		(
+			infomation varchar2(200)
+		);
+		create or replace trigger do_audit_emp_salary
+		after update
+		on emp
+		for each row
+		begin
+			if :new.sal > 6000 then
+				insert into audit_info values(:new.empno || "  " || :new.ename || "  " || :new.sal);
+			end if;
+		end;
+
+		create or replace trigger do_audit
+		after update
+		on emp
+		for each row
+		begin 
+			if :new.sal > 6000 then
+				insert into audit_info values(:new empno || "  " || :new.ename || "  " || :new.sal);
+			end if;
+		end;
+	触发器应用场景四：数据的备份和同步
+		当给员工涨完工资后，自动备份新的工资到备份表中
+		利用触发器实现数据的同步部分
+			创建一张备份表：
+			create table emp_back select * from emp;
+			触发器：
+				create or replace trigger sync_salary
+				after udate
+				on emp
+				for each row
+				begin
+					update emp_back set sal=:new.sal where empno=:new.empno;
+				end
