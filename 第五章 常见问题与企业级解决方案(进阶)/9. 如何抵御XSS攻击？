@@ -1,0 +1,35 @@
+如何抵御XSS攻击？
+	什么是XSS攻击？
+		XSS(跨站脚本)攻击，是让浏览器渲染DOM的时候意外的执行了恶意JS代码
+		XSS攻击的原理是在网页中嵌入一个恶意脚本
+			<img src="null" onerror='alert(document.cookie)'/>
+
+	XXS的危险之处
+		毕竟浏览器是一个沙箱环境，JavaScript不可以读写本地文件、不可以连接数据库、不可以创建线程。
+		XSS不会对系统造成破坏，但是却可以盗用账户信息
+
+	常用的XSS攻击案例(二)
+		通过HTML格式邮件的方式，发送恶意脚本
+
+
+	内容转义
+		AntiSamy是开源的Java类库，可以用来过滤XSS恶意代码
+		<dependency>
+			<groupId>org.owasp.antisamy</groupId>
+			<artifactId>antisamy</artifactId>
+			<version>1.5.5</version>
+		</dependency>
+
+	使用示例：
+		String temp = "HelloWorld<img src='null' onerror='alert(1234)'>";		
+		String path = Demo1.class.getResource("antisamy.xml").getPath().toString();
+		try {
+			Policy policy = Policy.getInstance(path);
+			AntiSamy samy = new AntiSamy();
+			String result = samy.scan(temp, policy).getCleanHTML();
+			System.out.println(result);
+		} catch (PolicyException e) {
+			e.printStackTrace();
+		} catch (ScanException e) {
+			e.printStackTrace();
+		}
