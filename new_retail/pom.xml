@@ -35,6 +35,7 @@
 			<version>3.8.1</version>
 			<scope>test</scope>
 		</dependency>
+		<!-- 使用其网络类 HTTPUtil -->
 		<dependency>
 			<groupId>cn.hutool</groupId>
 			<artifactId>hutool-all</artifactId>
@@ -45,10 +46,35 @@
 			<artifactId>mysql-connector-java</artifactId>
 			<version>8.0.16</version>
 		</dependency>
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-core</artifactId>
+			<version>8.1.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-analyzers-common</artifactId>
+			<version>8.1.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-queryparser</artifactId>
+			<version>8.1.0</version>
+		</dependency>
+		<dependency>
+			<groupId>com.hankcs</groupId>
+			<artifactId>hanlp</artifactId>
+			<version>portable-1.7.3</version>
+		</dependency>
+		<dependency>
+			<groupId>com.hankcs.nlp</groupId>
+			<artifactId>hanlp-lucene-plugin</artifactId>
+			<version>1.1.6</version>
+		</dependency>
 	</dependencies>
 
 	<build>
-		<finalName>o2o</finalName>
+		<finalName>new_retail</finalName>
 		<plugins>
 			<plugin>
 				<!-- https://mvnrepository.com/artifact/org.apache.maven.plugins/maven-compiler-plugin -->
