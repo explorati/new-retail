@@ -1,0 +1,32 @@
+就近发货的难题
+	京东商城是不支持跨地域发货的，本地没有库存就不允许购买。
+	怎么解决这个问题
+
+	注册高德地图开发者
+		https://lbs.amap.com/dev/id/choose
+		创建地图应用程序
+			需要先创建一个应用，才能使用高德地图API服务
+				点击控制台->应用管理->我的应用->创建一个应用->绑定密钥->获得密钥之后就可以使用各种服务
+
+				开发文档->Web端->地理/逆地理编码API(https://lbs.amap.com/api/webservice/guide/api/georegeo/)
+
+		引入hutool依赖包
+			Hutool是Java里面一个工具集合的依赖包，可以使用它的网络类，发送请求，查询地理坐标
+			<dependency>
+				<groupId>cn.hutool</groupId>
+				<artifactId>hutool-all</artifactId>
+				<version>4.5.10</version>
+			</dependency>
+			<dependency>
+				<groupId>mysql</groupId>
+				<artifactId>mysql-connector-java</artifactId>
+				<version>8.0.16</version>
+			</dependency>
+
+	编写Java程序测试
+		1.通过HTTP请求根据传入的parameter(Map类型数据)获取相应的地址信息(String类型)
+		2.将获取的String类型信息转换为JSON类型
+		3.获取Json格式信息相应属性，并转换为字符串
+		4.获取有用信息
+
+	修改数据库warehouse和warehouse_history，添加字段lng(经度)和lat(纬度)
