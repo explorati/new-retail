@@ -1,0 +1,101 @@
+利用MySQL计算两点之间距离
+	st_distance函数可以计算两个坐标之间相差的度数
+		如：select st_distance(
+				point(xxx, xxx),
+				point(xxx, xxx)
+			)*111195/1000;
+		上面得到的距离单位是km
+
+	select st_distance(
+		point(114.057868, 22.543099),
+		point(113.955032, 22.533947)
+	)*111195/1000;
+	11.480043429670548
+
+	//查找出离用户最近的仓库位置
+	select 
+	id,address,
+	st_distance(
+		point(122.268278, 40.731062),
+		point(lng, lat) 
+	)*111195/1000 as dis
+	from t_warehouse
+	order by dis asc
+	limit 1;
+
+	//查询拥有商品id为1的 并且 商品数量大于用户购买的数量(1)的 最近的 仓库
+	select t.id 
+	from
+	(select 
+		id,
+		st_distance(
+			point(122.268278, 40.731062),
+			point(lng, lat) 
+		)*111195/1000 as dis
+	from t_warehouse
+	order by dis
+	limit 1) t
+	join t_warehouse_sku ws on ws.warehouse_id = t.id
+	AND ws.sku_id = 1 AND ws.num >= 1;
+
+	//修改SQL语句 解决库存不够的问题
+	//先判断哪个仓库的库存足够，在排序然后选择仓库
+	select t.id 
+	from
+	(select 
+		w.id,
+		st_distance(
+			point(122.268278, 40.731062),
+			point(w.lng, w.lat) 
+		)*111195/1000 as dis
+	from t_warehouse w
+	join t_warehouse_sku ws on ws.warehouse_id = w.id
+	AND ws.sku_id = 1 AND ws.num >= 1
+	order by dis
+	limit 1) t;
+
+使用Java程序连接数据库，动态查询
+	HashMap map = new HashMap();
+	map.putObject("key","xxx");
+	map.putObject("address","营口盼盼工业园");
+	//获取地址信息
+	String resp = HttpUtil.get("https://restapi.amap.com/v3/geocode/geo", map);
+	//将地址信息转化为JSON格式
+	JSON json = JSONUtil.parse(resp);
+	//获取JSON格式中的location信息并转化为字符串
+	String location = json.getByPath("geocodes[0].location",String.class);
+	//获取经度
+	String lnt = location.split(",")[0];
+	//获取纬度
+	String lat = location.split(",")[1];
+
+	DriverManager.registerDriver(new Driver());
+	String url = "jdbc:mysql://ip:3306/数据库?serverTimeZone=GMT%2B8";
+	String username = "xxx";
+	String password = "xxx";
+	Connection conn = DriverManager.getConnection(url, username, password);
+	String sql = "SELECT\r\n " 
+							+ "t.id \r\n " 
+							+ "from\r\n" 
+							+ "(select \r\n" 
+								+ "w.id,\r\n" 
+								+ "st_distance(\r\n"
+											+ "point(?, ?),\r\n" 
+											+ "point(w.lng, w.lat) \r\n" 
+								+ ")*111195/1000 as dis\r\n"
+								+ "from t_warehouse w\r\n" 
+								+"join t_warehouse_sku ws on ws.warehouse_id = w.id\r\n"
+								+ "AND ws.sku_id = ? AND ws.num >= ?\r\n"
+								+ "order by dis\r\n"
+								+ "limit 1) t;" ;
+	PreparedStatement pst = conn.prepareStatement(sql);
+	pst.setObject(1, lng);
+	pst.setObject(2, lat);
+	pst.setObject(3, 商品id);
+	pst.setObject(4, 购买数量);
+	ResultSet set = pst.executeQuery();
+	while(set.next()) {
+		int id = set.getInt("id");
+		System.out.println(id);
+	}
+	conn.close();
