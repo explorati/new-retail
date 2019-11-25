@@ -1,0 +1,57 @@
+1.为什么要做中文分词？
+	中文是一种十分复杂的语言，让计算机理解中文语言更是困难
+
+2.MySQL的全文检索*
+	MySQL的全文检索功能，既支持英文和中文
+**	MySQL全文检索对英文支持很好，但是对中文支持的不好。不能按照语义切词，只能按照字符切词
+		如：中国很强大，MySQL就会切分成 中国 国很 很强 强大
+		切分结果不仅不对，而且字符串越长，切分出来的无意义的结果越多
+
+3.创建全文索引(体验全文索引的缺点)
+	给SKU数据表的title字段添加全文索引功能 (FULLTEXT类型索引)
+	执行全文检索查询(用LIKE关键字肯定没有索引快)
+		全文索引的条件写在WHERE子句中
+			SELECT id, title, images, price
+			FROM t_sku
+			WHERE MATCH(title) AGAINST("小米9")
+
+4.全文索引的弊病**
+	中文字段创建全文索引，切词结果太多，占用大量存储空间，而且不智能
+	更新字段内容，全文索引不会更新，必须定期手动维护
+	在数据库集群中，维护全文索引难度很大
+
+**结论：不要使用MySQL的全文索引，使用程序完成中文分词
+
+5.使用专业的全文检索引擎(Lucene)
+	Lucene是Apache基金会的开源全文检索引擎，支持中文分词
+
+	1.配置依赖文件(一)
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-core</artifactId>
+			<version>8.1.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-analyzers-common</artifactId>
+			<version>8.1.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-queryparser</artifactId>
+			<version>8.1.0</version>
+		</dependency>
+	2.引入第三方中文分词插件(HanLP)
+		Lucene自带的中文分词插件功能较弱，需要引入第三方中文分词插件，对中文内容准确分词
+		http://hanlp.com/
+		配置依赖文件
+		<dependency>
+			<groupId>com.hankcs</groupId>
+			<artifactId>hanlp</artifactId>
+			<version>portable-1.7.3</version>
+		</dependency>
+		<dependency>
+			<groupId>com.hankcs.nlp</groupId>
+			<artifactId>hanlp-lucene-plugin</artifactId>
+			<version>1.1.6</version>
+		</dependency>
