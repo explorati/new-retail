@@ -1,0 +1,57 @@
+创建Lucene索引(一)
+	//创建存储目录
+	Directory directory = FSDirectory.open(new File("D:/新零售数据库/中文分词/123").toPath());
+	//创建中文分词分析器
+	Analyzer analyzer = new HanLPAnalyzer();
+	//创建索引配置对象
+	IndexWriterConfig indexWriterConfig = new IndexWriterConfig(analyzer);
+	//创建索引写入器
+	IndexWriter indexWriter = new IndexWriter(directory, indexWriterConfig);
+创建Lucene索引(二)
+	//创建文档对象
+	Document doc = new Document();
+	//向文档文件中添加属性信息
+	doc.add(new TextField("id", 1, Field.Store.YES));
+	doc.add(new TextField("title", "小米9手机", Field.Store.YES));
+	//向写入器中添加文档对象
+	indexWriter.addDocument(doc);
+	//关闭写入器
+	indexWriter.close();
+
+全文检索(一)
+	//打开索引目录
+	Directory directory = FSDirectory.open(Paths.get("D:/新零售数据库/中文分词/123"));
+	//索引阅读器
+	IndexReader r = DirectoryReader.open(directory);
+	//索引扫描器
+	IndexSearcher indexSearcher = new IndexSearcher(r);
+	//需要扫描的内容
+	String parStr = "xxxx"; 		如：我想要苹果手机
+	//搜索字段的名称		
+	String defaultFileld = "xxx";	如：title
+
+	//中文分词器
+	Analyzer analyzer = new HanLPAnalyzer();
+	//查询解析器
+	QueryParser queryParser = new QueryParser(defaultField, analyzer);
+	//解析搜索
+	Query query = queryParser.parse(parStr);
+	TopDocs topDocs = indexSearcher.search(query, 100);
+	System.out.println("总命中数：" + topDocs.totalHits);
+
+	//读取搜索到的内容
+	ScoreDoc[] scoreDocs = topDocs.scoreDocs;
+	for(ScoreDoc scoreDoc : scoreDocs) {
+		Document document = indexSearch.doc(scoreDoc.doc);
+		System.out.println("id -> " + document.get("id"));
+		System.out.println("title -> " + document.get("title"));
+	}
+
+Lucene注意事项
+	不是所有数据表的记录，都要保存到Lucene上面，只对需要全文检索的字段使用Lucene即可
+
+	Lucene与Mysql结合
+		添加时，业务系统添加商品 -> 数据库保存数据 -> Lucene写入数据
+		查询时，业务系统查询商品 -> Lucene全文检索 -> (根据Lucene查询出来的商品编号)数据库查询数据->返回 
+
+
