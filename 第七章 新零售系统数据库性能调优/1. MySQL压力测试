@@ -1,0 +1,90 @@
+什么是压力测试
+	压力测试是针对系统的一种性能测试，但是测试数据与业务逻辑无关，更加简单直接的测试读写性能
+
+	说白了，压力测试就是，抛开具体的业务，单独测试硬件的性能，数据的读写都是单表操作的，所以测试的结果更加接近硬件本身的性能
+
+压力测试的指标
+	QPS：每秒钟处理完请求的次数(查询)
+	TPS：每秒钟处理完的事务次数(更新)
+	响应时间：一次请求所需要的平均处理时间
+	并发量：系统能同时处理的请求数
+
+压力测试工具
+	Mysqlslap：MySQL自带的测试工具，能应对一般的情况
+	Sysbench：第三方的，更专业
+	Jmeter：入门级测试工具。Java开发的，也能应对很多测试，但是针对MySQL的就很基础了
+
+	综合来看，应该选择Sysbench
+
+Sysbench简介
+	一个跨平台的压力测试软件,可运行在Linux或Mac OS平台
+	可自动生成测试数据，并可对数据库进行长时间的压力测试
+	线程测试
+		sysbench --test=threads --num-threads=64 --thread-yields=100 --thread-locks=2 rum
+	数据库测试
+		sysbench --test=oltp --mysql-table-engine=myisam --oltp-table-size = 100000 ...
+	CPU测试
+		sysbench --test=cpu --cpu-max-prime = 20000 rum
+	内存测试
+		sysbench --test=memory --memory --memory-block-size=8k --memory-total-size=4G run
+	磁盘测试
+		sysbench --test=fileio --num-threads=16 --file-total-size=3G --file-test-mode=rndrw rum
+
+	设置yum源(新建一个测试虚拟机,由于Sysbench不能和MySQL8.0安装在一个Linux系统上)
+		http://mirrors.aliyun.com/repo/Centos-7.repo
+		http://mirrors.163.com/.help/CentOS7-Base-163.repo
+		放在/etc/yum.repos.d目录中
+		CentOS上管理程序包的一个命令，可以用来安装程序，也可以用来卸载程序，还能升级程序。
+		替换yum源
+			curl -o /etc/yum.repos.d/CentOS-Base.repo mirrors.163.com/.help/CentOS7-Base-163.repo
+		更新缓存
+			yun clean all
+			yum makecache
+
+	Sysbench安装(不能和MySQL8.0安装在一个Linux系统上)
+		curl -s https://packagecloud.io/install/repositories/akopytov/sysbench/script.rpm.sh | sudo bash
+		yum -y install sysbench
+
+	Sysbench基本语法
+		sysbench script [options] [command]
+
+		[OPTION]连接信息参数
+			--mysql-host  		IP地址
+			--mysql-port  		端口号
+			--mysql-user  		用户名
+			--mysql-password 	密码
+
+		[OPTION]执行参数
+			--oltp-test-mode 	执行模式(simple(普通的增删改查)、nontrx(无事务的增删改查测试，针对Myisam)和complex(测试有事务的增删改查,针对Innodb))
+			--oltp-tables-count	测试表的数量(如10张表、100张表)
+			--oltp-table-size	测试表的记录数
+			--threads 			并发线程数
+			--time 				测试执行时间(秒) 不要设置的太短，最好为48h，这样就能实际反映出数据库性能
+			--report-interval  	生成报告单的间隔时间(秒)
+
+		[COMMAND]命令
+			prepare		准备测试数据
+			run 		执行测试
+			cleanup 	清除测试数据
+
+	准备测试数据
+		回到Navicat 新建逻辑库(名称不能改) sbtest
+		进入虚拟机
+			sysbench /usr/share/sysbench/tests/include/oltp_legacy/oltp.lua
+			--mysql-host=xxx --mysql-port=3306
+			--mysql-user=xxx --mysql-password=xxx
+			--oltp-tables-count=10 --oltp-table-size=100000
+			prepare
+		执行完上述脚本之后 会在sbtest数据库中看到测试记录
+
+	执行测试
+		sysbench /usr/share/sysbench/tests/inclede/oltp_legacy.oltp.lua
+		--mysql-host=xxx --mysql-port=3306
+		--mysql-user=xxx --mysql-password=xxx
+		--oltp-test-mode=complex --threads=10
+		--time=600 --report-interval=10
+		run >> /home/report.log
+		(测试模式为complex，并发线程数为10个，时间600秒，报告间隔10秒， 报告结果输出到/home/report.log文件中)
+		等待10分钟
+	进入/home   vi report.log查看日志记录
+
