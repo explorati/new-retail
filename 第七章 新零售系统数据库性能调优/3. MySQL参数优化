@@ -1,0 +1,94 @@
+MySQL参数优化
+	1.优化最大连接数(一)
+*		max_connections 是MySQL最大并发连接数，默认值为151
+*		MySQL允许的最大连接数上限是16384
+		实际连接数是最大连接数的85%较为合适
+			查询最大连接数：
+*				show variables like 'max_connections';  结果为151
+			查询当前连接数
+*				show status like 'max_used_connections';	结果为1
+	
+**		修改步骤：
+			1.进入/etc  vi my.cnf
+			2.在bind-address 下面添加一行就可以
+				max_connections=300
+			3.保存退出
+			4.重启数据库
+				service mysqld restart
+		再次查询：show variables like 'max_connections'; 结果为300
+
+	优化最大连接数(二)
+**		1.MySQL为每个连接创建缓冲区，所以不应该盲目上调最大连接数
+			#消耗约800M内存
+			max_connection=3000
+			当最大连接数为3000时，需消耗内存约800M
+
+	2.优化请求堆栈
+		back_log是存放执行请求的堆栈大小，默认值是50
+			show variables like 'back_log';  和刚才设置的最大连接数一样为300
+			当实际的连接数达到并发连接最大值时，再有新的请求，数据库就会拒绝，数据库会把新的请求放到堆栈里面，等到有空闲连接的时候，再把连接分配给堆栈的请求。
+*			默认情况，堆栈大小为50，可以将堆栈数加大点，一般为连接数的20%~30%
+
+		修改步骤：
+			1.vi /etc/my.cnf
+			2.在max_connections下面添加一行
+				back_log=90
+			3.保存退出
+			4.重启mysql
+				service mysqld restart
+				查询 show variables like 'back_log';  结果为90
+
+	3.修改并发线程数
+		innodb_thread_concurrency代表并发线程数，默认是0(没设上限)
+		并发线程数应该设置为CPU核心数的两倍
+*			如服务器主机4个CPU，一共有32个核心，所以给MySQL分配的线程数就应该是64
+			innodb_thread_concurrency=64
+
+		修改步骤：
+			1.vi /etc/my.cnf
+			2.在back_log下面添加一行
+				innodb_thread_concurrency=2			(由于服务器环境是1个核心)
+			3.保存退出
+			4.重启mysql
+				service mysqld restart
+
+	4.修改连接超时
+		1.wait-timeout是超时时间，单位是秒
+		2.数据库默认连接超时时间为8小时，连接长期不用又不销毁，浪费资源
+			#10分钟超时
+			wait-timeout=600 
+
+		修改步骤：
+			1.vi /etc/my.cnf
+			2.在innodb_thread_concurrency下面添加一行
+				wait-timeout=600
+			3.保存退出
+			4.重启mysql
+				service mysqld restart
+
+	5.InnoDB的缓存
+*		这里说的缓存不是查询缓存，查询缓存保存的是select的查询结果集
+		因为数据的删改会导致大面积缓存失效，这就增大了硬盘和内存的io开销，所以尽量不要使用查询缓存
+		InnoDB缓存和查询缓存是两回事
+***			InnoDB缓存里面保存两种数据：
+*				一种是将InnoDB数据表的一部分数据缓存到内存上，注意：缓存的不是查询结果集
+					即便对数据表做了一些修改，缓存的数据只要修改一条记录就行了
+					不会说对数据表修改了一条记录，导致大面积的缓存失效，而查询缓存就会出现大面积失效
+					这也是为什么要淘汰查询缓存的原因
+*				另一种是部分的索引数据。
+					索引能加快查询速度，如果说将一部分索引数据，就是二叉树的数据缓存到内存上面，这样查询数据就更快了，所以InnoDB引擎就会将一部分索引缓存到内存上，这样查询数据的速度就有了质的提升
+
+
+**	修改InnoDB缓存大小
+		1.innodb_buffer_pool_size是InnoDB的缓存容量，默认是128M
+		2.InnoDB缓存的大小可以设置为主机内存的70%~80%
+			如果说服务器的内存是128GB，可以把缓存设置成100GB，这是专门的数据库服务器，要是服务器上还要跑业务系统，就还要给业务系统留出一部分空间。InnoDB的缓存大小可以适当的减小一些
+
+		修改步骤：
+			1.vi /etc/my.cnf
+			2.可以看到有innodb_buffer_pool_size=128M
+			3.因为内存只有1GB，所以可以设置为400左右
+				innodb_buffer_pool_size=400M
+			4.保存退出
+			5.重启mysql
+				service mysqld restart
