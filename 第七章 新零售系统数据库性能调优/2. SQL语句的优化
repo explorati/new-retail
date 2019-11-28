@@ -1,0 +1,68 @@
+SQL语句的优化
+	优化SQL语句(一)
+**		1.不要把SELECT 子句写成 SELECT *
+			缺点:
+				1.返回的字段太多了，影响io性能
+				2.数据库执行时首先要查询表结构，然后得到表结构以后将select语句给改造，换成相应的字段再执行
+**		2.谨慎使用模糊查询(LIKE)，尽量不要把%写在开头
+			WHERE经常被用作条件查询，可以对字段设置索引来加速，但是很多时候，由于表达式书写的缘故，MySQL会跳过索引，进行全表扫描 
+			如：
+			select ename from t_emp where ename like '%s%'; 全表
+				由于like 条件中的第一个%，使得mysql不知道前面有多少个字符，只能进行全表扫描
+**			select ename from t_emp where ename like 's%';	走索引
+				如果是 like 's%' 就可以利用索引查找数据
+
+	优化SQL语句(二)
+**		1.对ORDER BY 排序的字段设置索引
+			将大大加快SQL的执行速度，因为索引是二叉树机制，将order by语句中的字段加上索引，排序就非常的快了
+				select ename from t_emp order by deptno;
+				应该给deptno字段设置索引
+**		2.少用 IS NULL 和 is not null
+			这两个表达式都会让SQL跳过索引，进行全表扫描
+			如：
+				SELECT ename from t_emp where comm is not null;
+				将comm设置了索引，但是执行这条SQL时，就会跳过索引，变成全表扫描
+				索引是一个二叉树，null值没有办法排序，所以是不会记录在索引里面的，跟null值有关系的查询都不会走索引
+**			可以使用的替换方法：
+				1.SELECT ename from t_emp where comm >= 0;
+				2.对字段不允许设置null值，用-1来代表空值
+					select ename from t_emp where comm = -1;
+
+	优化SQL语句(三)
+**		1.尽量少用 != 运算符
+			没有办法利用二叉树检索数据，变成全表扫描
+				如： select ename from t_emp where deptno != 20;
+				这条sql就是一个全表扫描的语句
+**				改进：select ename from t_emp where deptno < 20 and deptno > 20;
+					这种写法就可以利用索引，更快
+		2.尽量少用 OR 运算符
+			逻辑或也会让数据库跳过索引，OR之前的表达式会运用索引，但是or之后的数据就会跳过索引，执行全表
+				select ename from t_emp where deptno=20 or deptno=30;
+				前面的会利用索引，后面的不会走索引
+				改进：
+					select ename from t_emp where deptno=20 
+					union all
+					select ename from t_emp where deptno=30;
+					将一条SQL拆分成两个SQL
+
+	优化SQL语句(四)
+		1.尽量少用 IN 和 NOT IN 运算符
+			select ename from t_emp where deptno in (20,30)
+			改进：也是拆分
+				select ename from t_emp where deptno=20 
+				union all
+				select ename from t_emp where deptno=30;
+		2.避免条件语句中的数据类型转换
+			select ename from t_emp where deptno='20';
+			deptno是整数类型的，当它和字符串类型进行比较的时候，数据库会先将转换数据类型才能比较，就是说这样的条件会影响SQL语句的执行速度
+
+	优化SQL语句(五)
+		在表达式左侧使用运算符和函数会让索引失效
+			如：
+				select ename from t_emp where salary* 12 >= 100000;
+				select ename from t_emp where year(hiredate) >= 2000;
+				这是不走索引的
+				改进：
+					select ename from t_emp where salary >= 100000/12;
+					select ename from t_emp where hiredate >= '2000-01-01 00:00:00';
+
