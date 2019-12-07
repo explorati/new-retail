@@ -1,0 +1,86 @@
+Docker使用镜像创建容器示例
+	1.去Docker仓库寻找镜像(如寻找java相关)	 docker search java
+	2.复制NAME 如：docker.io/openjdk
+	3.获取仓库的镜像 docker pull docker.io/openjdk
+	4.查看Docker中的镜像  docker images
+
+1.Docker容器创建到删除
+	5.创建容器并切换到命令行操作容器 docker run -it docker.io/openjdk bash 
+	6.验证java环境是否有效 java
+	7.再次验证 javac
+	8.退出容器 exit
+	9.查看docker中容器 docker ps -a
+	10.复制容器编号 删除容器 docker rm xxxxx
+	11. 再查看容器 docker ps -a
+
+2.创建一个有目录映射的容器
+	12.到root目录下创建一个java目录
+		mkdir java
+	13.创建容器(-v ':'前面映射到宿主机(CentOS)的目录, ':'后面是映射到容器中哪个目录)
+		docker run -it -v /root/java:/root/java docker.io/openjdk bash
+	14.编写好java程序 上传到root/java （通过MobaXterm)
+		命名为 Hello.java
+		class Hello {
+			public static void main(String[] args) {
+				System.out.println("HelloWorld");
+			}
+		}
+	15.查看文件 cd /root/java  ls
+		权限不够 解决方案：关闭selinux  
+			vi /etc/sysconfig/selinux  
+			将SELINUX的值改为disabled 
+			重启系统
+	16.重新进入容器 
+		docker attach 容器id
+	17.查看文件 
+		cd /root/java
+		ls
+	18.编译java文件，执行
+		javac Hello.java
+		java Hello
+	19.退出容器 	
+		exit
+
+3.镜像导入与导出
+	Docker中的镜像可以随时导入与导出的
+		导出
+			docker save -o /root/openjdk.tar.gz docker.io/openjdk
+		导入
+			docker load < /root/openjdk.tar.gz
+	示例：
+		1.查看本地镜像 (复制名称 如：docker.io/openjdk)
+			docker images   
+		2.将镜像一压缩文件形式保存在/root/目录下 
+			docker save -o /root/openjdk.tar.gz docker.io/openjdk
+		3.进入到/root/目录下就可以看到
+			cd /root/
+			ls
+		4.导入镜像
+			(1) 先查看容器编号 
+				docker ps -a
+			(2) 删除容器
+				docker rm xxx
+			(3) 删除镜像
+				查看镜像名 docker images
+				删除镜像   docker rmi 镜像名
+			(4) 导入本地镜像
+				docker load < /root/openjdk.tar.gz
+			(5) 查看镜像
+				docker images
+			(6) 修改镜像名
+				docker tag docker.io/openjdk openjdk
+			(7) 删除原来镜像
+				docker rmi docker.io/openjdk
+4.创建容器
+	三种方式：创建容器的时候，我们可以映射端口和挂载目录
+		将容器命名为java 从openjdk这个镜像创建的 
+			docker run -it --name java openjdk bash
+		将容器命名为java 端口映射-p ':'前面是宿主机(CentOS)的端口，':'后面的是容器的端口 这里就是将容器的8080端口映射为宿主机的9000端口
+			docker run -it --name java -p 9000:8080 -p 9001:8085 openjdk bash
+		目录挂载 ':'前面是宿主机(CentOS)的目录，后面是容器的目录，将宿主机的目录挂载上容器的目录，这样往宿主机里面放置什么内容，这个容器也就跟着放置什么内容了  privileged是将容器的权限提升为最高
+ 			docker run -it --name java -v /root/project:/soft --privileged openjdk bash
+ 	示例：
+ 		(1) 容器命名为java  将容器的8080端口映射为宿主机的9000 将容器的/root/java目录映射到宿主机的/root/java目录 权限设置为最高--privileged
+ 		docker run -it --name java -p 9000:8080 -v /root/java:/root/java --privileged openjdk bash
+ 		(2) 退出，查看容器信息
+ 			exit   docker ps -a
