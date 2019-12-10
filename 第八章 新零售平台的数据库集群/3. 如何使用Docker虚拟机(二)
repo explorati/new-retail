@@ -31,7 +31,7 @@ Docker使用镜像创建容器示例
 			将SELINUX的值改为disabled 
 			重启系统
 	16.重新进入容器 
-		docker attach 容器id
+		docker start -i 容器名
 	17.查看文件 
 		cd /root/java
 		ls
