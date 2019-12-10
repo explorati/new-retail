@@ -1,0 +1,89 @@
+搭建PXC集群(保存的是高价值的数据)
+	PXC集群介绍
+		1.Percona XtraDB Cluster 是业界主流的MySQL集群方案
+		2.PXC集群的数据同步具有强一致性的特点(绝对不会出现数据读写不一致的情况)
+		3.PXC集群只支持InnoDB引擎
+
+	数据库也能运行在Docker里？
+		MySQL放在容器中运行会不会有性能损耗？
+			Docker是轻量级的虚拟机，Docker既没有虚拟机的硬件，又没有安装独立的操作系统，我们只不过是给Docker进程绑定上了CPU和内存，然后Docker内部再去划分每个容器占有多少硬件资源，Docker直接使用宿主机的Linux内核与底层的硬件交互，所以容器I/O的性能是没有损失的，把数据库部署到容器内也应很放心
+		数据保存到容器中，如果容器崩溃，如何提取数据？
+			将数据库部署在容器中，数据也就存放在容器里面了，而且宿主机上无法访问容器内部的文件，如果容器发生问题无法启动，真的没有办法从容器中提取数据。
+			解决办法：给容器做目录映射或挂载数据卷。将容器里面MySQL数据目录映射到宿主机的文件夹上面，即便容器崩溃了也没有关系，在宿主机上存在着数据库的数据，无非删掉故障的容器，然后创建一个新的容器，把宿主机的目录挂载一下就行了。
+
+	1.开启防火墙端口
+		开启2377、7946和4789端口，重启Docker服务(只要是管理节点，就必须开放2377端口)
+			2377：然其他节点加入到Swarm集群的端口
+			7946和4789：Swarm集群中相互之间通信的端口，这两个端口还要开放tcp和udp协议
+		firewall-cmd --zone=public --add-port=2377/tcp --permanent
+		firewall-cmd --zone=public --add-port=7946/tcp --permanent
+		firewall-cmd --zone=public --add-port=7946/udp --permanent
+		firewall-cmd --zone=public --add-port=4789/tcp --permanent
+		firewall-cmd --zone=public --add-port=4789/udp --permanent
+		firewall-cmd --reload
+		service docker restart
+
+	2.下载PXC镜像(所有节点都需要)
+		下载最新的PXC镜像(镜像包含了 Percona 数据库，不用单独安装数据库了)
+			下载镜像 	docker pull percona/percona-xtradb-cluster  
+			将镜像改名 	docker tag percona/percona-xtradb-cluster pxc 
+				此时docker images (有三个镜像，包括改名前和改名后的)
+			将原有镜像删除	docker rmi percona/percona-xtradb-cluster
+
+		若想了解PXC镜像使用说明
+			https://hub.docker.com/r/percona/percona-xtradb-cluster
+
+	PXC的主节点容器
+		1.第一个启动的PXC节点是主节点，他要初始化PXC集群
+		2.PXC启动之后，就没有主节点的角色了
+		3.PXC集群中任何节点都是可以读写数据的
+
+	3.创建主节点容器
+		1.创建主节点之后，稍等一会儿，才能连接
+		docker run -d -p 9001:3306 
+		-e MYSQL_ROOT_PASSWORD=XXX 
+		-e CLUSTER_NAME=PXC1 
+		-e XTRABACKUP_PASSWORD=xxx 
+		-v pnv1:/var/lib/mysql 
+		--privileged 
+		--name=pn1 
+		--net=swarm_mysql 
+		pxc
+		如：
+		(docker run -d -p 9001:3306 -e MYSQL_ROOT_PASSWORD=123456 -e CLUSTER_NAME=PXC1 -e XTRABACKUP_PASSWORD=123456 -v pnv1:/var/lib/mysql --privileged --name=pn1 --net=swarm_mysql pxc)
+		(
+		-d代表创建容器之后不仅如此交互界面，直接在后台运行就行; 
+		-p 9001:3306 刚创建出来的容器是带数据库的，容器中的数据库端口时3306，需要映射到宿主机的9001端口，这样用Navicat连接宿主机的9001端口就能访问到容器的MySQL
+		-e MYSQL_ROOT_PASSWORD=XXX  设置root用户的密码
+		-e CLUSTER_NAME=PXC1 		PXC集群名字
+		-e XTRABACKUP_PASSWORD=XXX 	pxc集群节之间数据同步的密码
+										各节点间在做数据同步时，需先验证这个同步的口令，口令对了，允许节点间数据同步
+		-v pnv1:/var/lib/mysql 		数据卷的挂载(数据卷可以理解为一个虚拟的磁盘)
+		--privileged 				赋予最高权限
+		-name=pn1 					名字可以自己规定，pn1代表的是PXC node1的意思		
+		--net=swarm_mysql 			容器使用的虚拟网络(swarm_mysql是之前创建的)
+		pxc  						容器从哪个镜像里面创建
+		）
+
+		2.创建成功后，等待几分钟，使用Navicat连接虚拟机9001端口，用root登录，密码上面设置的
+
+	4.创建从节点容器
+		必须主节点可以访问了，才能创建从节点，否则会闪退
+		docker run -d -p 9001:3306
+		-e MYSQL_ROOT_PASSWORD=XXX
+		-e CLUSTER_NAME=PXC1
+		-e XTRABACKUP_PASSWORD=XXX
+		-e CLUSTER_JOIN=pn1
+		-v pnv2:/var/lib/mysql 
+		--privileged 
+		--name=pn2
+		--net=swarm_mysql
+		pxc
+		(和创建主节点只多加了一个-e CLUSTER_JOIN=pn1  代表连接主节点的容器(别名为pn1)加入到PXC集群)
+
+		创建成功之后，也许等待一两分钟，才能连接
+
+		连接成功之后，就没有主从之分了，主节点写入数据，从节点也能读到数据
+		可以使用Navicat进行测试
+
+**	搭建PXC集群深刻印证了 鸡蛋不能放在一个篮子里
