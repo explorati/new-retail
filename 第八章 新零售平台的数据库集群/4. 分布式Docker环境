@@ -8,7 +8,7 @@
 	多个VM实例 代表多个节点  
 	再在每个实例上部署Docker环境
 
-删除存在的容器
+1.删除存在的容器
 	service docker start 	开启docker
 	docker ps -a 			查看存在的docker容器
 	docker stop 容器名 		停止容器
@@ -17,7 +17,7 @@
 	poweroff 				关机
 	克隆出其余三个虚拟机
 
-创建Swarm集群
+2.创建Swarm集群
 	1.service docker start
 	2.docker swarm init ：在任意节点上执行，swarm集群就会创建出来，当前Docker节点自动加入到Swarm集群，并成为Swarm集群的管理节点
 	3.复制创建Swarm集群时的 一段话 如：
@@ -35,7 +35,7 @@
 		docker swarm leave -f 
 	当再次加入Swarm集群时，不是主节点的Docker虚拟机需 先执行离开 docker swarm leave
 
-查看Swarm集群网络
+3.查看Swarm集群网络
 	docker network ls
 	创建共享网络(需在管理节点  swarm_test 是虚拟网络名字)
 		docker network create -d overlay --attachable swarm_test   
@@ -47,8 +47,8 @@
 	虚拟网络的删除
 		docker network rm 虚拟网络名
 
-创建分布式容器
-	docker run -it --net=虚拟网络名
+创建分布式容器(每个节点都需要创建,先不用创建，在PXC集群搭建是创建)
+	docker run -it --net=虚拟网络名(如 swarm_mysql)
 	这样创建的容器就是分布式容器了
 
 
