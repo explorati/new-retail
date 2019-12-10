@@ -83,3 +83,8 @@
 			rm：删除容器
 			commit：将容器转化成镜像
 
+**			docker start -i 容器名  重新启动容器(直接进入命令行交互界面)
+			docker start 容器名  	重新启动容器(容器后台运行)
+			docker pause 容器名     暂停容器
+			docker unpause 容器名   恢复暂停的容器
+
