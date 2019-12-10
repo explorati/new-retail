@@ -1,0 +1,54 @@
+集中部署的缺点
+	把数据库集群都部署在一个Docker节点上不是一个好办法，如果宿主机宕机了，那么每个MySQL节点都不能使用了
+
+分布式部署
+	Docker Swarm技术可以自动把异地的Docker虚拟机组成一个局域网
+
+创建多个VM实例
+	多个VM实例 代表多个节点  
+	再在每个实例上部署Docker环境
+
+删除存在的容器
+	service docker start 	开启docker
+	docker ps -a 			查看存在的docker容器
+	docker stop 容器名 		停止容器
+	docker rm 容器名 		删除容器
+	service docker stop 	停止docker
+	poweroff 				关机
+	克隆出其余三个虚拟机
+
+创建Swarm集群
+	1.service docker start
+	2.docker swarm init ：在任意节点上执行，swarm集群就会创建出来，当前Docker节点自动加入到Swarm集群，并成为Swarm集群的管理节点
+	3.复制创建Swarm集群时的 一段话 如：
+		 docker swarm join \
+    --token SWMTKN-1-5tia07oxujdijx7uxmx7hb98vf2rcz8td6uxogepx3lisdaofj-eez55h8271t67rdr841apq90u \
+    192.168.204.130:2377
+	4.需开放2377的端口(供其他Docker主机连接)
+		firewall-cmd --zone=public --add-port=2377/tcp --permanent
+		firewall-cmd --reload
+	5.在其他三个虚拟机上执行上面复制的 命令(执行前需先开启Docker服务)
+	6.查看Swarm集群节点
+		docker node ls		只能运行在主节点上
+		docker node rm -f 节点  			(-f 表示强制删除运行中的Docker节点)
+	7.强制解散Swarm集群(主节点)
+		docker swarm leave -f 
+	当再次加入Swarm集群时，不是主节点的Docker虚拟机需 先执行离开 docker swarm leave
+
+查看Swarm集群网络
+	docker network ls
+	创建共享网络(需在管理节点  swarm_test 是虚拟网络名字)
+		docker network create -d overlay --attachable swarm_test   
+	查看虚拟网络
+		docker network ls
+
+	虚拟网络的意义：因为每一个Docker虚拟机上可以运行成百上千的容器，如果Swarm集群中的所有容器都运行在同一个虚拟网络之内，ip地址就不够分配的，所以可以创建多个虚拟网络，然后把这些容器划分到不同的虚拟网络上，问题解决
+
+	虚拟网络的删除
+		docker network rm 虚拟网络名
+
+创建分布式容器
+	docker run -it --net=虚拟网络名
+	这样创建的容器就是分布式容器了
+
+
