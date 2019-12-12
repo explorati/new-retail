@@ -1,0 +1,50 @@
+之前已经搭建了两个PXC集群，这还远远不够，因为PXC集群适合保存高价值的数据，如果把大量低价值的数据也保存到PXC集群，就会显得很浪费，白白浪费了PXC有限的数据同步资源
+
+Replication集群简介
+	1.Replication集群是MySQL自带的数据同步机制
+	2.MySQL通过读取、执行另一个MySQL的bin_log日志，实现数据同步
+		开启MySQL的bin_log日志，然后所有使用MySQL的操作都会被记录在这个日志文件中，另外一个MySQL通过读取bin_log文件就会知道第一个MySQL节点执行了哪些操作，而且第二个MySQL还会把这些操作在本地也执行一遍，因为执行的操作都是相同的，所以两个MySQL的内容就完全相同了
+
+主从关系同步
+	Replication集群中，数据同步是单向的，从主节点(Master)同步到从节点(Slave)
+		开启了bin_log的节点称为主节点，读取bin_log日志的节点叫做从节点
+		如果业务系统时读多写少非常严重，那么可以给一个Master节点设置更多的Slave节点
+
+下载安装Replication镜像
+	Oracle并没有提供官方的Replication镜像，所以我们只能安装第三方封装的镜像文件
+	1.docker pull mishamx/mysql   	下载安装replication镜像
+	2.docker tag mishamx/mysql rep 	给镜像取名
+	3.docker rmi mishamx/mysql 		删除原来的镜像
+
+Relication集群的结构
+	虚拟机 			IP地址 			端口      容器    	数据卷
+	虚拟机1	   192.168.99.241 		9003	  rn1(m)     rnv1
+	虚拟机2	   192.168.99.195		9003      rn2(s) 	 rnv2
+	虚拟机3	   192.168.99.201		9003      rn3(s)     rnv3
+	虚拟机4 	   192.168.99.178 		9003      rn4(s)     rnv4
+
+必须等到主节点的容器启动起来，才能去创建从节点的容器
+
+创建主节点容器
+	主节点用来让其他节点与之同步，而且主节点身份是固定的
+		docker run -d -p 9003:3306 --name rn1
+		-e MYSQL_MASTER_PORT=3306
+		-e MYSQL_ROOT_PASSWORD=abc123456
+		-e MYSQL_REPLICATION_USER=backup
+		-e MYSQL_REPLICATION_PASSWORD=backup123
+		-v rnv1:/var/lib/mysql --privileged
+		--net=swarm_mysql rep
+
+创建从节点(需保证主节点可正常访问)
+	从节点需要与主节点同步数据，没有主节点不能创建从节点
+	docker run -d -p 9003:3306 --name rn2
+	-e MYSQL_MASTER_HOST=rn1
+	-e MYSQL_MASTER_PORT=3306
+	-e MYSQL_ROOT_PASSWORD=abc123456
+	-e MYSQL_REPLICATION_USER=backup
+	-e MYSQL_REPLICATION_PASSWORD=back123456
+	-v rnv2:/var/lib/mysql --privileged
+	--net=swarm_mysql rep
+	(区别在于-e MYSQL_MASTER_HOST=rn1 , 由于是在同一虚拟网络，所以不会发生冲突)
+
+现在已经能进行同步了
