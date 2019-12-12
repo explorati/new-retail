@@ -47,7 +47,7 @@
 		-v pnv1:/var/lib/mysql 
 		--privileged 
 		--name=pn1 
-		--net=swarm_mysql 
+		--net=swarm_mysql  (swarm的虚拟网络) 
 		pxc
 		如：
 		(docker run -d -p 9001:3306 -e MYSQL_ROOT_PASSWORD=123456 -e CLUSTER_NAME=PXC1 -e XTRABACKUP_PASSWORD=123456 -v pnv1:/var/lib/mysql --privileged --name=pn1 --net=swarm_mysql pxc)
