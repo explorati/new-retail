@@ -1,0 +1,51 @@
+没有数据库中间件的年代
+	没有数据库中间件的时候，通常把数据切分规则记录在数据表，然后通过查询数据表得知，查询的数据保存在什么MySQL节点
+
+数据库中间件
+	数据库中间件保存了水平切分的规则，直接可以切分和整合数据
+
+为什么选用MyCat？
+	MyCat是基于Java语言的开源数据库中间件产品
+	相较于其他中间件产品，MyCat的切分规则最多，功能最全
+	数据库中间件产品并不会频繁更新升级
+
+下载MyCat中间件
+	http:/www.mycat.io/
+	下载最新release版本
+	因为要使用在Linux中，所以下载linux版的
+
+	安装OpenJDK镜像
+		建议使用OpenJDK1.8环境部署MyCat
+		安装OpenJDK1.8镜像
+			docker pull adoptopenjdk/openjdk8
+			docker tag adoptopenjdk/openjdk8 openjdk8
+			docker rm adoptopenjdk/openjdk8 
+
+	创建Java容器，在数据卷放入MyCat
+		docker run -d -it --name mycat1
+		-v mycat1:/root/server
+		--privileged --net=host
+		openjdk8
+		(-it代表不让他退出，否则创建出来虽然-d在后台运行，不过会退出
+		--net=host 代表使用的是宿主机的网络)
+
+	MyCat使用的端口有两个，8066和9066，所以到宿主机上开放这两个端口
+		firewall-cmd --zone=public --add-port=8066/tcp --permanent
+		firewall-cmd --zone=public --add-port=9066/tcp --permanent
+		firewall-cmd reload
+
+		8066端口是用来做数据处理的
+		9066端口是用来获得MyCat运行状态信息的
+
+	1.找到MyCat挂载数据卷的位置
+		docer volume inspect mycat1
+	2.进入到数据卷目录(如：cd /var/lib/docker/volumes/mycat1/_data)，将MyCat的文件上传到数据卷的位置
+	3.进入数据卷目录
+		ls
+		tar -xvf Mycat.tar.gz
+		docker exec -it mycat1 bash
+			cd ~
+			cd server
+			ls
+		可以看到容器的相应/root/server文件夹下已经有mycat了
+
