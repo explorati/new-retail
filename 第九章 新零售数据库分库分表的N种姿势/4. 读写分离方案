@@ -1,0 +1,36 @@
+读写分离的方案
+	Replication镜像不能配置双向主从同步，所以只能使用一写三读(瓶颈：主节点宕机整个集群就废了)
+	最理想的办法：
+		（1）设置一个双向同步的集群，如一个主节点，给他挂上一个从节点，在从节点中给他设置一下，让他充当主节点，而另外一个节点就充当了从节点，这两个节点做数据同步，所以，这两个节点互为主从同步
+		（2）再给两个主节点挂载上从节点，这样就完成了四个节点的相对高可用的主从同步方案
+		（3）这样，某一个主节点宕机之后，还有另一个主节点可以用
+	MyCat管理读写分离:如果某一个主(写)节点宕机了，MyCat就不会使用这个写节点的读节点，因为数据已经不同同步了，所以MyCat就没必要向这个读节点发送请求，而是向另外的写节点的读节点发送请求
+	先使用一写三读来搭建Replication集群
+
+	配置读写分离
+		1.修改schame.xml文件，加入读写分离的配置(dataHost既可以配置PXC，也可以配置Replication)
+			balance:为3表示写节点和读节点的功能是分开的
+				<dataHost name="rep1" maxCon="1000" minCon="10" balance="3"
+					  writeType="1" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+				<heartbeat>select user()</heartbeat>
+				<!-- can have multi write hosts -->
+				<writeHost host="r1w1" url="192.168.204.130:9003" user="root"
+						   password="wl520000">
+						<readHost host="r1r1" url="192.168.204.131:9003" user="root"
+						password="wl520000"/>
+				</writeHost>
+				<!-- <writeHost host="hostM2" url="localhost:3316" user="root" password="123456"/> -->
+			</dataHost>
+			<dataHost name="rep2" maxCon="1000" minCon="10" balance="3"
+					  writeType="1" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+				<heartbeat>select user()</heartbeat>
+				<!-- can have multi write hosts -->
+				<writeHost host="r2w1" url="192.168.204.130:9004" user="root"
+						   password="wl520000">
+						<readHost host="r2r1" url="192.168.204.131:9004" user="root"
+						password="wl520000"/>
+				</writeHost>
+				<!-- <writeHost host="hostM2" url="localhost:3316" user="root" password="123456"/> -->
+			</dataHost>
+
+		可以参考MyCat官方手册，pdf版77-80页
