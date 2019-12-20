@@ -1,0 +1,102 @@
+高可用的MyCat
+	为了实现高可用，我们一共需要配置两个MyCat容器
+		MyCat并不存储数据，也不执行SQL语句 仅仅起来路由SQK语句的作用
+		所以管理四个集群的分片，一个集群就够了。但是为了避免MyCat宕机之后没有可替代的东西，所以我们还要设置一个冗余的MyCat节点，平时MyCat2节点处于待机的状态，一旦MyCat1挂掉了，MyCat2会替代MyCat1的工作
+	MyCat部署方案
+		虚拟机			IP地址 			端口 		容器 	   数据卷
+		虚拟机1 		192.168.xxx.xxx   8066/9066    mycat1      mycat1
+		虚拟机2      192.168.xxx.xxx   8066/9066    mycat1      mycat1
+
+	MyCat主要的配置文件
+		server.xml：用来配置MyCat端口，选举主键的生成方式，还有虚拟的逻辑库，虚拟的账户
+		schema.xml：(最重要的)配置数据库连接的，以及数据表都是用什么样的切分规则等
+		rule.xml：可以让我们自己定义数据的切分规则
+
+	MyCat到底是什么？
+		MyCat是MySQL数据库中间件产品，运行的时候会把自己虚拟成MySQL数据库，包括虚拟的逻辑库和数据表
+		MyCat有自己的虚拟逻辑库、虚拟逻辑表、虚拟账户
+		我们用Navicat或者jdbc连接MyCat是没有问题的
+
+	配置server.xml文件
+		可以配置端口号、账户信息、全局主键方式等等
+		<mycat:server>
+		 ...
+		 <user name="admin">
+		 	<property name="password">abc123</property>
+		 	<property name="schemas">neti</property>
+		 </user>
+		</mycat:server>
+		scheme：逻辑库(可以设置多个)
+
+		1.访问mycat1数据卷
+			(1)docker volume inspect mycat1 
+			(2)cd 复制的路径(如：/var/lib/docker/volumes/mycat1/_data)
+			(3)cd mycat/conf
+			(4)vi server.xml
+				(将第一个user修改，将第二个user注释)
+				<user name="admin" defaultAccount="true">
+					<property name="password">wl520000</property>
+					<property name="schemas">neti</property>
+					
+					<!-- 表级 DML 权限设置 -->
+					<!-- 		
+					<privileges check="false">
+						<schema name="TESTDB" dml="0110" >
+							<table name="tb01" dml="0000"></table>
+							<table name="tb02" dml="1111"></table>
+						</schema>
+					</privileges>		
+					 -->
+				</user>
+
+				<!-- <user name="user">
+					<property name="password">user</property>
+					<property name="schemas">TESTDB</property>
+					<property name="readOnly">true</property>
+				</user> -->
+			(5)配置PXC负载均衡
+				cd /var/lib/docker/volumes/mycat1/_data/mycat/conf
+				vi schema.xml
+					(1)将schame的name改为数据库名称 如：neti
+					(2)配置两个PXC集群(dataHost既可以配置PXC，也可以配置Replication)
+						<dataHost name="pxc1" maxCon="1000" minCon="10" balance="0"
+							  writeType="1" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+							<heartbeat>select user()</heartbeat>
+							<!-- can have multi write hosts -->
+							<writeHost host="p1w1" url="192.168.204.130:9001" user="root"
+									   password="wl520000">
+							</writeHost>
+							<writeHost host="p1w2" url="192.168.204.131:9001" user="root"
+									   password="wl520000">
+							</writeHost>
+						</dataHost>
+						<dataHost name="pxc2" maxCon="1000" minCon="10" balance="0"
+								  writeType="1" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+							<heartbeat>select user()</heartbeat>
+							<!-- can have multi write hosts -->
+							<writeHost host="p2w1" url="192.168.204.130:9002" user="root"
+									   password="wl520000"/>
+							<writeHost host="p2w2" url="192.168.204.131:9002" user="root"
+									   password="wl520000"/>
+							<!-- <writeHost host="hostM2" url="localhost:3316" user="root" password="123456"/> -->
+						</dataHost>
+		什么是读写分离？
+			数据库中间件把读写任务分别发送给不同节点执行，可以降低单一节点的负载
+			PXC集群不需要设置读写分离，做负载均衡即可
+			Replication集群主从节点功能明确，需要做读写分离
+
+		配置PXC负载均衡
+			修改schema.xml文件，加入PXC负载均衡的内容
+				修改dataHost标签(PXC集群和Replication集群都是用这个标签来配置)
+					name：别名 maxCon minCon 最大(小)连接数，MyCat自带连接池
+					balance:特别重要(0:表示不使用读写分离，所有请求都发送给写节点)
+					writeType:为1代表读写请求随机发送给可用的写节点
+					dbType:数据库类型 mysql
+					dbDriver:自带数据库驱动 native
+					switchType:为1代表MyCat会根据自身带有的心跳检测结果去判断哪一个MySQL节点宕机
+					slaveThreshold：和Replication集群相关，主从数据库同步100s，从库如果落后于主库的时间超过100s，MyCat就会剔除这个从节点，不会从这个从节点读取数据
+					<heartbeat>心跳检测要执行的SQL语句 如：select 1(只要返回有响应就行)
+					<writeHost>配置MySQL节点的，如有四个节点，就用四个writeHost标签
+						host：别名 url：IP地址:MySQL端口号(如：192.168.xxx.xxx:9001)
+
+
