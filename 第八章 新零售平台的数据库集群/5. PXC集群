@@ -13,7 +13,7 @@
 
 	1.开启防火墙端口
 		开启2377、7946和4789端口，重启Docker服务(只要是管理节点，就必须开放2377端口)
-			2377：然其他节点加入到Swarm集群的端口
+			2377：让其他节点加入到Swarm集群的端口
 			7946和4789：Swarm集群中相互之间通信的端口，这两个端口还要开放tcp和udp协议
 		firewall-cmd --zone=public --add-port=2377/tcp --permanent
 		firewall-cmd --zone=public --add-port=7946/tcp --permanent
@@ -52,7 +52,7 @@
 		如：
 		(docker run -d -p 9001:3306 -e MYSQL_ROOT_PASSWORD=123456 -e CLUSTER_NAME=PXC1 -e XTRABACKUP_PASSWORD=123456 -v pnv1:/var/lib/mysql --privileged --name=pn1 --net=swarm_mysql pxc)
 		(
-		-d代表创建容器之后不仅如此交互界面，直接在后台运行就行; 
+		-d代表创建容器之后不进入交互界面，直接在后台运行就行; 
 		-p 9001:3306 刚创建出来的容器是带数据库的，容器中的数据库端口时3306，需要映射到宿主机的9001端口，这样用Navicat连接宿主机的9001端口就能访问到容器的MySQL
 		-e MYSQL_ROOT_PASSWORD=XXX  设置root用户的密码
 		-e CLUSTER_NAME=PXC1 		PXC集群名字
