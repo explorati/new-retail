@@ -17,9 +17,9 @@
 	安装OpenJDK镜像
 		建议使用OpenJDK1.8环境部署MyCat
 		安装OpenJDK1.8镜像
-			docker pull adoptopenjdk/openjdk8
-			docker tag adoptopenjdk/openjdk8 openjdk8
-			docker rm adoptopenjdk/openjdk8 
+		docker pull adoptopenjdk/openjdk8
+		docker tag adoptopenjdk/openjdk8 openjdk8(改名)
+		docker rmi adoptopenjdk/openjdk8(删除原有镜像)
 
 	创建Java容器，在数据卷放入MyCat
 		docker run -d -it --name mycat1
@@ -32,7 +32,7 @@
 	MyCat使用的端口有两个，8066和9066，所以到宿主机上开放这两个端口
 		firewall-cmd --zone=public --add-port=8066/tcp --permanent
 		firewall-cmd --zone=public --add-port=9066/tcp --permanent
-		firewall-cmd reload
+		firewall-cmd --reload
 
 		8066端口是用来做数据处理的
 		9066端口是用来获得MyCat运行状态信息的
