@@ -43,6 +43,21 @@
 	实例名称Docker主机1，内存2GB，处理器数量1，内核数2个
 	CD/DVD: D:\CentOS镜像文件\CentOS-7-x86_64-Everything-1908.iso
 
+	(1)关闭SELinux
+	SELinux是Linux2.6以上版本捆绑的一个安全模块
+	SELinux配置复杂，容易和其他程序冲突，所以建议关闭
+
+	vi /etc/selinux/config
+	将其中的配置改为disabled，然后保存退出:wq，然后重启系统reboot
+
+	(2)替换yum源
+	CentOS上管理程序包的一个命令，可以用来安装程序，也可以用来卸载程序，还能升级程序。
+	替换yum源
+		curl -o /etc/yum.repos.d/CentOS-Base.repo mirrors.163.com/.help/CentOS7-Base-163.repo
+	更新缓存
+		yun clean all
+		yum makecache
+
 7.安装Docker虚拟机
 	在CentOS上安装Docker虚拟机
 		1.安装	yum install -y docker
