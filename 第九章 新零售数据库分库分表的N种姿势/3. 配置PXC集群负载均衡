@@ -48,7 +48,6 @@
 					</privileges>		
 					 -->
 				</user>
-
 				<!-- <user name="user">
 					<property name="password">user</property>
 					<property name="schemas">TESTDB</property>
