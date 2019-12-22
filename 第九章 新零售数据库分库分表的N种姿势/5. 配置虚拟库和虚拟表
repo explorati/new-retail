@@ -1,0 +1,25 @@
+配置虚拟库和虚拟表
+	虚拟逻辑库和关系表
+		因为MyCat并不存储数据，所以必须要配置可以使用的虚拟逻辑库和关系表
+
+	什么是逻辑库？
+		<dataNode>标签可以设置使用的真实逻辑库
+		<dataNode name="dn1" dataHost="pxc1" database="neti"/>
+		<dataNode name="dn2" dataHost="pxc2" database="neti"/>
+		<dataNode name="dn3" dataHost="rep1" database="neti"/>
+		<dataNode name="dn4" dataHost="rep2" database="neti"/>
+
+		练习
+		<dataNode name="tdn1" dataHost="pxc1" database="t1"/>
+		<dataNode name="tdn2" dataHost="pxc2" database="t1"/>
+		<dataNode name="tdn3" dataHost="rep1" database="t2"/>
+		<dataNode name="tdn4" dataHost="rep2" database="t2"/>
+
+		步骤：
+			docker volume inspect mycat1
+			cd 复制的路径(如：/var/lib/docker/volumes/mycat1/_data)
+			cd mycat/conf
+			vi schema.xml
+			
+
+
