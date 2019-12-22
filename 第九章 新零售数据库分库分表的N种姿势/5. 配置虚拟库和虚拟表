@@ -20,6 +20,7 @@
 			cd 复制的路径(如：/var/lib/docker/volumes/mycat1/_data)
 			cd mycat/conf
 			vi schema.xml
-			
+			添加
+
 
 
