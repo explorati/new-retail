@@ -16,15 +16,29 @@ Replication集群简介
 	2.docker tag mishamx/mysql rep 	给镜像取名
 	3.docker rmi mishamx/mysql 		删除原来的镜像
 
-Relication集群的结构
+Relication集群的结构(示例)
 	虚拟机 			IP地址 			端口      容器    	数据卷
 	虚拟机1	   192.168.99.241 		9003	  rn1(m)     rnv1
 	虚拟机2	   192.168.99.195		9003      rn2(s) 	 rnv2
 	虚拟机3	   192.168.99.201		9003      rn3(s)     rnv3
 	虚拟机4 	   192.168.99.178 		9003      rn4(s)     rnv4
 
+只有两个虚拟机
+	集群1
+		虚拟机 		   	  IP  			 端口 		容器 		数据卷
+		虚拟机1    192.168.204.130  		 9003		rn1  		rnv1
+		虚拟机2    192.168.204.131  		 9003		rn2  		rnv2
+	集群2
+		虚拟机 			IP地址 			端口      容器    	数据卷
+		虚拟机1    192.168.204.130  		 9004	  rn3    	rnv3
+		虚拟机2    192.168.204.131  		 9004	  rn4   	rnv4
+	搭建集群2命令：
+		主：docker run -d -p 9004:3306 --name rn3 -e MYSQL_MASTER_PORT=3306 -e MYSQL_ROOT_PASSWORD=XXX -e MYSQL_REPLICATION_USER=backup -e MYSQL_REPLICATION_PASSWORD=backup123 -v rnv3:/var/lib/mysql --privileged --net=swarm_mysql rep
+		从：docker run -d -p 9004:3306 --name rn4 -e MYSQL_MASTER_HOST=rn3 -e MYSQL_MASTER_PORT=3306 -e MYSQL_ROOT_PASSWORD=XXX -e MYSQL_REPLICATION_USER=backup -e MYSQL_REPLICATION_PASSWORD=backup123 -v rnv4:/var/lib/mysql --privileged --net=swarm_mysql rep
+
 必须等到主节点的容器启动起来，才能去创建从节点的容器
 
+若创建时 参数错误，先docker stop 容器ID ，再docker rm 容器ID
 创建主节点容器
 	主节点用来让其他节点与之同步，而且主节点身份是固定的
 		docker run -d -p 9003:3306 --name rn1
@@ -34,6 +48,7 @@ Relication集群的结构
 		-e MYSQL_REPLICATION_PASSWORD=backup123
 		-v rnv1:/var/lib/mysql --privileged
 		--net=swarm_mysql rep
+		如： docker run -d -p 9003:3306 --name rn1 -e MYSQL_MASTER_PORT=3306 -e MYSQL_ROOT_PASSWORD=XXX -e MYSQL_REPLICATION_USER=backup -e MYSQL_REPLICATION_PASSWORD=backup123 -v rnv1:/var/lib/mysql --privileged --net=swarm_mysql rep
 
 创建从节点(需保证主节点可正常访问)
 	从节点需要与主节点同步数据，没有主节点不能创建从节点
@@ -46,5 +61,6 @@ Relication集群的结构
 	-v rnv2:/var/lib/mysql --privileged
 	--net=swarm_mysql rep
 	(区别在于-e MYSQL_MASTER_HOST=rn1 , 由于是在同一虚拟网络，所以不会发生冲突)
+	如： docker run -d -p 9003:3306 --name rn2 -e MYSQL_MASTER_HOST=rn1 -e MYSQL_MASTER_PORT=3306 -e MYSQL_ROOT_PASSWORD=XXX -e MYSQL_REPLICATION_USER=backup -e MYSQL_REPLICATION_PASSWORD=backup123 -v rnv2:/var/lib/mysql --privileged --net=swarm_mysql rep
 
 现在已经能进行同步了
