@@ -65,7 +65,8 @@
 		pxc  						容器从哪个镜像里面创建
 		）
 
-		2.创建成功后，等待几分钟，使用Navicat连接虚拟机9001端口，用root登录，密码上面设置的
+		2.创建成功后，等待几分钟，用docker ps -a查看容器状态 为UP后
+		使用Navicat连接虚拟机9001端口，用root登录，密码上面设置的
 
 	4.创建从节点容器
 		必须主节点可以访问了，才能创建从节点，否则会闪退
@@ -80,10 +81,27 @@
 		--net=swarm_mysql
 		pxc
 		(和创建主节点只多加了一个-e CLUSTER_JOIN=pn1  代表连接主节点的容器(别名为pn1)加入到PXC集群)
-
+		如：docker run -d -p 9001:3306 -e MYSQL_ROOT_PASSWORD=wl520000 -e CLUSTER_NAME=PXC1 -e XTRABACKUP_PASSWORD=wl520000 -e CLUSTER_JOIN=pn1 -v pnv1:/var/lib/mysql --privileged --name=pn2 --net=swarm_test pxc
 		创建成功之后，也许等待一两分钟，才能连接
 
 		连接成功之后，就没有主从之分了，主节点写入数据，从节点也能读到数据
 		可以使用Navicat进行测试
+
+		在任意一个节点创建数据库(如：在pn2上创建一个逻辑库 demo，在pn1上也会出现)
+
+		集群1
+		虚拟机 		   	  IP  			 端口 		容器 		数据卷
+		虚拟机1    192.168.204.130  		 9001		pn1  		pnv1
+		虚拟机2    192.168.204.131  		 9001		pn2  		pnv2
+
+		因为只创建了两个虚拟机，所以只能有两个虚拟机组成的集群
+
+		集群二
+		虚拟机 		   	  IP  			 端口 		容器 		数据卷
+		虚拟机1    192.168.204.130  		 9002		pn3  		pnv3
+		虚拟机2    192.168.204.131  		 9002		pn4  		pnv4
+		创建命令：
+			主：docker run -d -p 9002:3306 -e MYSQL_ROOT_PASSWORD=wl520000 -e CLUSTER_NAME=PXC2 -e XTRABACKUP_PASSWORD=wl520000 -v pnv3:/var/lib/mysql --privileged --name=pn3 --net=swarm_mysql pxc
+			从：docker run -d -p 9002:3306 -e MYSQL_ROOT_PASSWORD=wl520000 -e CLUSTER_NAME=PXC2 -e XTRABACKUP_PASSWORD=wl520000 -e CLUSTER_JOIN=pn3 -v pnv4:/var/lib/mysql --privileged --name=pn4 --net=swarm_mysql pxc
 
 **	搭建PXC集群深刻印证了 鸡蛋不能放在一个篮子里
