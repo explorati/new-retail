@@ -35,6 +35,8 @@ Relication集群的结构(示例)
 	搭建集群2命令：
 		主：docker run -d -p 9004:3306 --name rn3 -e MYSQL_MASTER_PORT=3306 -e MYSQL_ROOT_PASSWORD=XXX -e MYSQL_REPLICATION_USER=backup -e MYSQL_REPLICATION_PASSWORD=backup123 -v rnv3:/var/lib/mysql --privileged --net=swarm_mysql rep
 		从：docker run -d -p 9004:3306 --name rn4 -e MYSQL_MASTER_HOST=rn3 -e MYSQL_MASTER_PORT=3306 -e MYSQL_ROOT_PASSWORD=XXX -e MYSQL_REPLICATION_USER=backup -e MYSQL_REPLICATION_PASSWORD=backup123 -v rnv4:/var/lib/mysql --privileged --net=swarm_mysql rep
+		(注意：将MYSQL_ROOT_PASSWORD的值进行替换，还有 --name 容器名 以及-v 数据卷:/var/lib/mysql
+		从节点还需将MYSQL_MASTER_HOST的值(主服务器节点)进行替换)
 
 必须等到主节点的容器启动起来，才能去创建从节点的容器
 
@@ -49,6 +51,7 @@ Relication集群的结构(示例)
 		-v rnv1:/var/lib/mysql --privileged
 		--net=swarm_mysql rep
 		如： docker run -d -p 9003:3306 --name rn1 -e MYSQL_MASTER_PORT=3306 -e MYSQL_ROOT_PASSWORD=XXX -e MYSQL_REPLICATION_USER=backup -e MYSQL_REPLICATION_PASSWORD=backup123 -v rnv1:/var/lib/mysql --privileged --net=swarm_mysql rep
+		(注意：将MYSQL_ROOT_PASSWORD的值进行替换，还有 --name 容器名 以及-v 数据卷:/var/lib/mysql)
 
 创建从节点(需保证主节点可正常访问)
 	从节点需要与主节点同步数据，没有主节点不能创建从节点
@@ -57,10 +60,23 @@ Relication集群的结构(示例)
 	-e MYSQL_MASTER_PORT=3306
 	-e MYSQL_ROOT_PASSWORD=abc123456
 	-e MYSQL_REPLICATION_USER=backup
-	-e MYSQL_REPLICATION_PASSWORD=back123456
+	-e MYSQL_REPLICATION_PASSWORD=back123
 	-v rnv2:/var/lib/mysql --privileged
 	--net=swarm_mysql rep
 	(区别在于-e MYSQL_MASTER_HOST=rn1 , 由于是在同一虚拟网络，所以不会发生冲突)
-	如： docker run -d -p 9003:3306 --name rn2 -e MYSQL_MASTER_HOST=rn1 -e MYSQL_MASTER_PORT=3306 -e MYSQL_ROOT_PASSWORD=XXX -e MYSQL_REPLICATION_USER=backup -e MYSQL_REPLICATION_PASSWORD=backup123 -v rnv2:/var/lib/mysql --privileged --net=swarm_mysql rep
+	如： docker run -d -p 9003:3306 --name rn2 -e MYSQL_MASTER_HOST=192.168.204.130 -e MYSQL_MASTER_PORT=3306 -e MYSQL_ROOT_PASSWORD=XXX -e MYSQL_REPLICATION_USER=backup -e MYSQL_REPLICATION_PASSWORD=backup123 -v rnv2:/var/lib/mysql --privileged --net=swarm_mysql rep
+
+	创建完主节点之后 连接查询 show master status;  (查看File 的 mysql-bin.xxx的值
+	创建完从节点之后 连接查询 show slave status; (查看Master_Log_File 他和上面的值一样就好了
+			Slave_IO_State  值为 Waiting for master to send event是就ok了
 
 现在已经能进行同步了
+
+若不能同步，解决步骤：
+	1.docker volume inspect rnv1(数据卷名)
+	2.cd /var/lib/docker/volumes/rnv1 进入这个目录 将原来的创建的文件删除
+	3.删完之后，再将需要的目录创建出来 /_data
+	4.如果刚创建的不好使，再将其删掉，然后重新执行一遍
+
+
+	
