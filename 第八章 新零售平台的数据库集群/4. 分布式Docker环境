@@ -38,7 +38,7 @@
 3.查看Swarm集群网络
 	docker network ls
 	创建共享网络(需在管理节点  swarm_test 是虚拟网络名字)
-		docker network create -d overlay --attachable swarm_test   
+		docker network create -d overlay --attachable swarm_mysql   
 	查看虚拟网络
 		docker network ls
 
