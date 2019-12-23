@@ -11,7 +11,7 @@
 
 下载MyCat中间件
 	http:/www.mycat.io/
-	下载最新release版本
+	(最好下载1.6.5-release版的，别的版本有可能会有问题，传送门：http://dl.mycat.io/1.6.5/)
 	因为要使用在Linux中，所以下载linux版的
 
 	安装OpenJDK镜像
@@ -28,6 +28,7 @@
 		openjdk8
 		(-it代表不让他退出，否则创建出来虽然-d在后台运行，不过会退出
 		--net=host 代表使用的是宿主机的网络)
+		如：docker run -d -it --name mycat1 -v mycat1:/root/server --privileged --net=host openjdk8
 
 	MyCat使用的端口有两个，8066和9066，所以到宿主机上开放这两个端口
 		firewall-cmd --zone=public --add-port=8066/tcp --permanent
@@ -38,7 +39,7 @@
 		9066端口是用来获得MyCat运行状态信息的
 
 	1.找到MyCat挂载数据卷的位置
-		docer volume inspect mycat1
+		docker volume inspect mycat1
 	2.进入到数据卷目录(如：cd /var/lib/docker/volumes/mycat1/_data)，将MyCat的文件上传到数据卷的位置
 	3.进入数据卷目录
 		ls
