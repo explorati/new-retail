@@ -16,11 +16,73 @@
 		<dataNode name="tdn4" dataHost="rep2" database="t2"/>
 
 		步骤：
-			docker volume inspect mycat1
-			cd 复制的路径(如：/var/lib/docker/volumes/mycat1/_data)
-			cd mycat/conf
-			vi schema.xml
-			添加
+			1.docker volume inspect mycat1
+			2.cd 复制的路径(如：/var/lib/docker/volumes/mycat1/_data)
+			3.cd mycat/conf
+			4.vi schema.xml
+				修改dataNode标签
+					<dataNode name="dn1" dataHost="pxc1" database="neti" />
+			        <dataNode name="dn2" dataHost="pxc2" database="neti" />
+			        <dataNode name="dn3" dataHost="rep1" database="neti" />
+			        <dataNode name="dn4" dataHost="rep2" database="neti" />
 
+			        <dataNode name="tdn1" dataHost="pxc1" database="t1" />
+			        <dataNode name="tdn2" dataHost="pxc2" database="t1" />
+			        <dataNode name="tdn3" dataHost="rep1" database="t2" />
+			        <dataNode name="tdn4" dataHost="rep2" database="t2" />
+		接下来的步骤需要完成上一章的 PXC集群、Replicaiton集群的搭建之后才可以继续
+
+		5.pxc集群数据库 pn1 pn2 pn3 pn4  replication集群数据库 rn1 rn2 rn3 rn4
+			先在全部集群上创建neti数据库
+			再创建练习库(pxc为t1,replication为t2)
+			
+
+		6.设计虚拟逻辑库和虚拟逻辑表
+		<schema>标签可以设置虚拟逻辑库，<table>标签可以设置虚拟关系表
+		其中 
+			name:逻辑库名 
+			checkSQLschema：为true，MyCat在执行SQL语句的时候会把SQL语句中的逻辑库名字给去掉；为false，不会将SQL语句中逻辑库的名字去掉，如select * from 逻辑库 ,为false不会去掉逻辑库
+			sqlMaxLimit：每条SQL语句最多返回多少条数据(Navicat默认返回1000条)
+			name：虚拟表名 
+			type：数据表类型是全局表(不做数据水平切分的数据表)
+			rule：定义水平切分的规则，mod-long这个算法是按照主键值求模切分，现在有两个replication集群分片，mod-long就会按主键值求模来存储(0,1)
+		<schema name="neti" checkSQLschema="false" sqlMaxLimit="100">
+		</schema>
+		<schema name="t1" checkSQLschema="false" sqlMaxLimit="100">
+		</schema>
+		<schema name="t2" checkSQLschema="false" sqlMaxLimit="100">
+			<!-- auto sharding by id (long) -->
+			<!-- <table name="travelrecord" dataNode="dn1,dn2,dn3" rule="auto-sharding-long" /> -->
+			<table name="teacher" dataNode="tdn3,tdn4" type="global" />
+			<table name="student" dataNode="tdn3,tdn4" rule="mod-long" />
+			<!-- <table name="oc_call" primaryKey="ID" dataNode="dn1$0-743" rule="latest-month-calldate"
+				/> -->
+		</schema>
+		先定义三种逻辑库，并先具体定义要进行测试的逻辑库replication集群(rep1和rep2)的t2
+		7.编辑server.xml
+			查看原先创建的虚拟用户 user 其中只有逻辑库neti，还需要添加t1,t2
+			修改之后：
+				<user name="admin" defaultAccount="true">
+					<property name="password">wl520000</property>
+					<property name="schemas">neti</property>
+					<property name="schemas">t1</property>
+					<property name="schemas">t2</property>
+					<!-- 表级 DML 权限设置 -->
+					<!-- 		
+					<privileges check="false">
+						<schema name="TESTDB" dml="0110" >
+							<table name="tb01" dml="0000"></table>
+							<table name="tb02" dml="1111"></table>
+						</schema>
+					</privileges>		
+					 -->
+				</user>
+		8.修改mod-long算法
+			MyCat默认的mod-long是按照三个分片切分数据(主键对3求模)，所以我们要求改这个默认值(现在希望把数据切分到两个Replication集群)
+			修改rule.xml文件中的mod-long分片数量(将3改为2)
+				<function name="mod-long" class="io.mycat.route.function.PartitionByMod">
+					<!-- how many data nodes -->
+					<property name="count">2</property>
+				</function>
 
 
