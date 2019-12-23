@@ -1,0 +1,112 @@
+MyCat日志文件
+	MyCat日志文件主要有console.log和mycat.log，存放在mycat/logs目录
+		(这个目录并不存在，要自己创建，如果启动MyCat出现问题，要认真阅读这两个日志文件，里面会有详细的错误信息。将错误修改过来之后，删除这两个日志文件，然后重启mycat，再次查看这两个日志，知道没有错误)
+	步骤：
+		1.进入mycat容器
+			docker exec -it mycat1 bash
+			cd /root/server
+			ls
+			cd mycat
+			ls
+			(若没有logs目录)mkdir logs
+
+启动MyCat
+	1.为MyCat/bin目录中所有sh命令设置最高权限
+		接着上面(
+		 	docker exec -it mycat1 bash
+		 	cd /root/server/mycat)
+		cd bin
+		chmod -R 777 ./*.sh
+	2.启动MyCat程序
+		在bin目录中
+		1.6.5版本可以用./startup_nowarp.sh启动
+		(新版本启动 
+		使用./startup_nowrap.sh启动报错，可以修改vi startup_nowrap.sh
+		:set ff查看显示为dos，
+		然后用set ff=unix修改默认执行系统)
+		(使用./mycat start和上面的启动方法不一样，不要使用)
+	3.查看docker运行的进程 
+		ps -a
+		可以看到没有Java进程，mycat没有启动成功
+		就算有，也需要查看log日志，接着下一步
+	4.阅读MyCat日志文件
+		查看错误(虚拟逻辑库至少得有一张表)
+		将schema.xml文件修改
+			<schema name="neti" checkSQLschema="false" sqlMaxLimit="100">
+				<table name="teacher" dataNode="dn1,dn2" type="global" />
+			</schema>
+			<schema name="t1" checkSQLschema="false" sqlMaxLimit="100">
+				<table name="teacher" dataNode="tdn1,tdn2" type="global" />
+			</schema>
+			<schema name="t2" checkSQLschema="false" sqlMaxLimit="100">
+				<!-- auto sharding by id (long) -->
+				<!-- <table name="travelrecord" dataNode="dn1,dn2,dn3" rule="auto-sharding-long" /> -->
+				<table name="teacher" dataNode="tdn3,tdn4" type="global" />
+				<table name="student" dataNode="tdn3,tdn4" rule="mod-long" />
+				<!-- <table name="oc_call" primaryKey="ID" dataNode="dn1$0-743" rule="latest-month-calldate"
+					/> -->
+			</schema>
+	-----------------一般不需要做，因为建立容器时使用jdk了--------
+		若没有JDK,安装JDK
+			下载上传Java到~目录
+			更改权限
+				chmod +x jdk-8u201-linux-x64.rpm
+			安装
+				rpm -ivh jdk-8u201-linux-x64.rpm
+			使用java -version 查看信息
+	-----------------------------------------------------------
+		5.进入mycat容器，启动mycat
+			docker exec -it mycat1 bash
+			cd /root/server
+			ls
+			cd mycat/bin
+			./startup_nowrap.sh
+			ps -a (可以看到有java和ps进程)
+			cd ..
+			cd logs
+			可以看到两个日志文件console.log,mycat.log
+			查看console.log可以看到(没有错误)
+				OpenJDK 64-Bit Server VM warning: ignoring option MaxPermSize=64M; support was removed in 8.0 MyCAT Server startup successfully. see logs in logs/mycat.log
+			查看mycat.log(都是INFO的信息，没有错误)
+		至此，mycat启动成功
+
+		6.到Navicat中创建一个新的连接，进行测试
+			(1)连接名：MyCat IP:第一个创建MyCat的主机ip  端口：8066 用户名：admin(server.xml中配置的) 密码:xxx(server.xml)
+			(2)可以看到MyCat中有t2数据表 
+				新建一个查询面板，输入SQL语句(只能用SQL语句创建)
+				create table teacher(
+					id int unsigned primary key,
+					`name` varchar(200) not null
+				);
+
+				create table student(
+					id int unsigned primary key,
+					`name` varchar(200) not null
+				);
+			(3)创建成功后，到rn1中查看t2表，可以看到新创建的两个表teacher,student(由于schema.xml中配置)
+				rn1,rn2.rn3,rn4都会有这两个数据表
+			(4)之后就可以用图形界面操作了，打开MyCat的teacher表，添加记录
+				此后在MyCat数据表中添加记录rn1,rn2,rn3,rn4中的teacher数据表都会有相同的记录
+				全局表(type="global")会把SQL语句路由给所有配置的表
+			(5)查看具体路由情况 explain insert into teacher(id,`name`) values(2,"Jack");
+				(可以看到被分发到两个集群中执行了)
+
+			(6)在student表中插入一条数据1，A，之后到rn1,rn2,rn3,rn4中查看，可以看到rn2,rn4中有相应的数据，而rn1,rn3中没有
+			 再在student表中插入一条数据4，B，可以看到rn1,rn3中存在，rn2,rn4中没有
+			这是由于schema.xml中配置的切分规则决定的
+			(7)完美实现了数据切分
+
+
+编辑JAVA_HOME:
+	vi /etc/profile
+
+	追加如下内容：
+	JAVA_HOME=/usr/java/jdk1.8.0_91
+	JRE_HOME=/usr/java/jdk1.8.0_91/jre
+	PATH=$JAVA_HOME/bin:$JRE_HOME/bin:$PATH
+	CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar:$JRE_HOME/lib
+	export JAVA_HOME JRE_HOME PATH CLASSPATH
+
+	source /etc/profile   //使修改立即生效
+	echo $JAVA_HOME //查看JAVA_HOME的值
+	javac -version
