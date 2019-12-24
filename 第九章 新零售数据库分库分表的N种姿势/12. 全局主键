@@ -1,0 +1,71 @@
+全局主键
+	在数据库集群中，就不能使用数据库主键自动增长机制
+
+数据库主键自增长的弊病
+	使用数据库本地的主键自增长，会产生重复主键的记录
+
+使用全局主键
+	在数据库集群环境中，应该使用中间件来生成主键值
+	MyCat支持多种主键生成方式，其中最好的是Zookeeper方式
+
+	本地文件方式(不推荐)
+		MyCat按照计数器的方式生成自增长的主键值
+		计数器的参数被保存在文本文档中
+		最大的弊病：无法和其他MaCat节点通信，接假如一个MyCat宕机了，代替的MyCat无法知道上一个的计数器参数
+
+	数据库方式(不推荐)
+		MyCat按照计数器的方式生成自增长的主键值
+		计数器的参数被保存到数据库中
+		比文本文档好在：数据库之间可以有数据同步的，第一个MyCat宕机了，由于有数据同步，所以第二个MyCat可以立即投入使用，第二个可以继续生成全局主键
+		这个方案看似很完美，但是有致命的漏洞：看两个数据库之间的同步方式，是pxc还是replication。如果是pxc，当系统大量写入数据的时候，需要频繁调用MyCat计数器来生成主键值，MyCat会频繁更新pxc节点的数据，使用pxc的方式来同步两个节点，两个节点的数据同步的压力有点大；换成replicaiton，在主节点上写入数据并不能保证一定同步到从节点，假如还没有来得及同步到从节点，这个时候主节点就挂了，MyCat主节点，包括它对应的数据库都不能使用了，另一个MyCat投入使用，第二个MyCat因为对应的是从节点数据库，所以没有同步到最新的数据，使用第二个MyCat来生成全局主键，就会有和原来的主键值重复的情况。所以，无论是pxc还是replication都是有问题的
+
+	本地时间戳方式
+		MyCat根据本地时间戳和机器ID，生成一个18位的主键值
+			本地时间戳的方案不需要存储任何数据，所以也不需要在MyCat之间同步数据，就算第一个MyCat宕机了，第二个MyCat生成的主键值依然不会重复
+		因为生成的主键值都是偶数，所以无法用在主键求模切分规则上，如果不用主键求模切分规则，效果还是不错的
+
+	Zookeeper方式(最为推荐)
+		利用Zookeeper生成时间戳主键值，主键字段必须使用bigint类型
+		Zookeeper生成的时间戳主键值包含奇数和偶数，可以用于主键值求模切分
+		我们可以对Zookeeper建立集群，实现分布式生成主键值
+
+安装Zookeeper
+	下载Zookeeper官方镜像
+		docker pull zookeeper
+	启动Zookeeper
+	docker run -d --name z1 
+	-p 2181:2181 
+	-p 3888:3888 
+	-p 2888:2888 
+	--net=swarm_mysql zookeeper
+	(如：docker run -d --name z1 -p 2181:2181 -p 3888:3888 -p 2888:2888 --net=swarm_mysql zookeeper)
+
+配置Zookeeper时间戳主键(一)
+	编辑server.xml文件，修改sequenceHandlerType属性
+		步骤：(可查阅MyCat手册)
+			(1)进入MyCat的conf目录 
+				cd /var/lib/docker/volumes/mycat1/_data/mycat/conf/
+			(2)vi server.xml(将sequenceHandlerType的值从默认的2改为3)
+				<property name="sequnceHandlerType">3</property>
+			(3)编辑myid.properties文件，配置参数信息(mycat的conf目录下)
+				loadZK=true
+				zkURL=xxx (如zkURL=192.168.204.130:2181)
+				clusterId=mycat-cluster-1 (mycat集群名)
+				myid=mycat_fz_01          (mycat主机的名字)
+				clusterNodes=mycat_fz_01  (mycat集群中有几个节点)
+				(如：
+					loadZk=true
+					zkURL=192.168.204.130:2181
+					clusterId=mycat-cluster-1
+					myid=mycat_fz_01
+					clusterSize=1
+					clusterNodes=mycat_fz_01)
+			(4)热加载MyCat文件(一定要保证zookeeper正在运行)
+				到Navicat中，右键MyCat管理 这个连接，选择命令列界面
+					reloal @@config_all;
+...		之后到MyCat的t2数据库中，新建查询
+			select NEXT value for MYCATSEQ_GLOBAL;
+			执行之后可以看到一个全局主键
+...		假如要用在insert语句中，此列的类型需为bigint类型
+			insert into company(id, `name`, city_id) values(next value for MYCATSEQ_GLOBAL, "Apple", 411);
+
