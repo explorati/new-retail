@@ -1,0 +1,38 @@
+主键求模切分(并不是很常用)
+	主键求模切分可以把数据均匀的切分到分片中
+		假如有1000条数据，对2(可以修改rule.xml文件修改)求模，那么每个分片均匀保存500条数据
+	这种切分规则适合初始数据数据量很大，但是数据增幅不大的场合
+
+	主键求模切分的缺点
+		数据不分类直接存储，以后的维护成本比较高，例如增添新分片
+
+	底层实现：
+		1.打开rule.xml文件
+		2.找到
+			<function name="mod-long" class="io.mycat.route.function.PartitionByMod">
+				<!-- how many data nodes -->
+				<property name="count">2</property>
+			</function>
+		mycat是Java语言写的，所以可以看到class属性，具体算法实现类
+		所以可以自定义一个Java类，自己定义切分规则
+		3.再找到
+			<tableRule name="mod-long">
+				<rule>
+					<columns>id</columns>
+					<algorithm>mod-long</algorithm>
+				</rule>
+			</tableRule>
+		column定义的是对哪个字段进行求模切分
+		此标签中的name="mod-long"是定义虚拟表时的规则配置的rule
+		同理，tableRule也可以自定义(可以改动columes，但标签名称不能和原有的重复)
+
+	测试主键求模的数据路由：
+		测试语句：
+			explain insert into student(id, `name`) values(3, "李娜");  分发目标分片
+			explain insert into student(id, `name`) values(4, "刘娜");  分发目标分片
+			explain select id, `name` from student;						分发两个分片 
+			explain select id, `name` from student where id=1;          目标分片
+			explain delete from student; 								两个分片
+			explain delete from student where name="A; 					分别两个分片
+			explain delete from student where id=1;    					分发目标分片
+
