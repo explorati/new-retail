@@ -1,0 +1,13 @@
+全局表
+	数据字典或者数据量不是很大的业务表，都可以定义成全局表
+
+配置全局表
+	配置全局表就是给虚拟表设置type等于global
+		<table name="teacher" dataNode="tdn3,tdn4" type="global"/>
+
+全局表的SQL路由
+	查询语句，MyCat会随机路由给一个分片执行
+	INSERT、DELETE、UPDATE语句会路由给每个分片去执行
+		验证：
+		通过explain select id,`name` from teacher;可以发现每次都是路由到不同的分片去执行
+		通过explain insert into teacher(id,`name`) values(2,"Jack");可以发现路由给每个分片
