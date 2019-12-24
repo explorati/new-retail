@@ -1,0 +1,66 @@
+跨分片的表连接
+	跨分片的表连接需要在网络中传输大量的数据，所以Myat不支持跨分片表连接
+
+父子表机制(优雅的解决跨分片表连接)
+	两张都是水平切分的数据表，要实现表连接查询，需要定义父子表关系
+	父表的数据被切分到什么分片，子表的数据会切分到同样的分片
+		如：
+			客户表(父)     
+			 陈浩
+			 李娜
+			缴费表(子)
+			陈浩缴费
+			李娜缴费
+
+	配置父子表
+		父表可以有切分规则，但是子表不能配置切分规则
+		步骤：
+			1.到mycat的conf目录下
+				cd /var/lib/docker/volumes/mycat1/_data/mycat/conf/ 
+			2.修改schema.xml
+				<schema name="t1" checkSQLschema="false" sqlMaxLimit="100">
+					<table name="customer" dataNode="tdn1,tdn2" rule="sharding-by-city">
+						<childTable name="payment" joinKey="customer_id" parentKey="id">
+						</childTable>
+					</table>
+				</schema>
+				其中可以嵌套多层父子表关系
+				primaryKey:主键属性，虚拟表的主键列为ID，这个属性非必填，和声明父子表没有关系。用上primaryKey这个属性，将来从虚拟表中查询出来的数据就会被MyCat缓存，key是ID值，value是记录的数据内容。不使用primaryKeY查询出来的数据就不会被缓存。
+				dataNode="tdn1,tdn2":由于客户信息比较重要，所以数据记录到两个pxc集群中。
+				rule="sharding-by-city" ，前面枚举值切分创建的规则
+				childTable：子表标签
+				joinKey="customer_id"：子表中的字段
+				parentKey="id"：父表中的字段
+			3.热加载
+				到Navicat中，右键MyCat管理，选择命令列界面
+					reload @@config_all;
+				热加载的MyCat端口为9066
+				MyCat端口为8066
+				(重启mycat指令 bin目录下执行 ./mycat restart)
+			4.打开t1数据库，新建查询,创建父表customer 及 子表 payment
+				create table customer(
+					id int unsigned primary key,
+					`name` varchar(200) not null,
+					city_id int unsigned not null
+				)default charset=utf8;
+				create table payment(
+					id int unsigned primary key,
+					customer_id int unsigned not null,
+					create_time timestamp not null
+				)default charset=utf8;
+			5.需先在父表中添加数据
+				1 Scott 10
+				2 Jack  24
+			  再在子表中添加数据
+			 	1  1  40  时间
+			 	2  1  30  时间
+			 	3  2  50  时间
+			 可查看两个pxc分片查看
+			 6.测试表连接 ，在t1上新建查询
+			 	select c.id, c.name, p.pay, p.create_time from customer c join payment p on c.id=p.customer_id;
+			 	可成功看到运行结果
+
+		查看SQL执行情况
+			explain select c.id, c.name, p.pay, p.create_time from customer c join payment p on c.id=p.customer_id;
+
+	MyCat父子表机制彻底解决了分片表之间的表连接查询，不会出现跨分片的表连接查询
