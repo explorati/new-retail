@@ -90,7 +90,6 @@ MyCat日志文件
 				全局表(type="global")会把SQL语句路由给所有配置的表
 			(5)查看具体路由情况 explain insert into teacher(id,`name`) values(2,"Jack");
 				(可以看到被分发到两个集群中执行了)
-
 			(6)在student表中插入一条数据1，A，之后到rn1,rn2,rn3,rn4中查看，可以看到rn2,rn4中有相应的数据，而rn1,rn3中没有
 			 再在student表中插入一条数据4，B，可以看到rn1,rn3中存在，rn2,rn4中没有
 			这是由于schema.xml中配置的切分规则决定的
